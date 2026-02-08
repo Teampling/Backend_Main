@@ -1,0 +1,20 @@
+name: 🛠️ 리팩토링 작업
+description: 개발 환경 개선 작업
+title: "[REFACTOR] "
+labels: ["type: refactor"]
+assignees: []
+
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: 🛠 개선 내용
+      placeholder: ruff 설정 업데이트 및 불필요한 rule 제거
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: 📖 개선 이유
+      placeholder: lint 경고가 과도하게 발생하여 가독성을 해침

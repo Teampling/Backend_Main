@@ -1,0 +1,46 @@
+name: 🐞 버그 수정
+description: 동작 오류, 예외 상황, 의도하지 않은 결과
+title: "[FIX] "
+labels: ["type: fix"]
+assignees: []
+
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: ❗ 문제 설명
+      description: 어떤 문제가 발생했는지 명확히 작성
+      placeholder: 작업 생성 시 담당자가 없으면 서버 에러(500)가 발생함
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 🔁 재현 방법
+      description: 문제를 재현하는 단계
+      placeholder: |
+        1. 작업 생성 API 호출
+        2. assignees 없이 요청
+        3. 500 에러 발생
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: ✅ 기대 동작
+      placeholder: 담당자가 없으면 400 에러와 메시지를 반환해야 함
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: 🧩 환경 정보
+      placeholder: |
+        - 브랜치: main
+        - Python: 3.11
+        - DB: Postgres
+    validations:
+      required: false

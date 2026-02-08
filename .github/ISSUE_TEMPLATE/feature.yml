@@ -1,0 +1,60 @@
+name: ✨ 기능 개발
+description: 새로운 기능 추가 또는 기존 기능 개선
+title: "[FEAT] "
+labels: ["type: feat"]
+assignees: []
+
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 📌 개요
+      description: 어떤 기능인지 한 줄로 설명해주세요.
+      placeholder: 예) 프로젝트 작업에 담당자를 여러 명 지정할 수 있도록 한다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: background
+    attributes:
+      label: 🎯 배경 / 목적
+      description: 왜 이 기능이 필요한지 적어주세요.
+      placeholder: 현재 작업은 담당자를 1명만 지정할 수 있어 협업에 불편함이 있다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 📦 범위
+      description: 포함 / 제외할 내용을 명확히 적어주세요.
+      placeholder: |
+        포함:
+        - 작업 생성 시 담당자 다중 선택
+        - 작업 수정 시 담당자 변경
+
+        제외:
+        - 알림 로직 개선
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: ✅ 수용 기준 (Acceptance Criteria)
+      description: 이 이슈가 완료되었다고 판단할 기준
+      placeholder: |
+        - 담당자는 1명 이상 지정 가능
+        - 프로젝트 팀원이 아닌 경우 지정 불가
+        - 잘못된 요청 시 적절한 에러 코드 반환
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 📝 참고 사항
+      description: API 변경, DB 변경, UI 영향 등
+      placeholder: |
+        - works 테이블에 assignee_ids 컬럼 추가 필요
+        - API 스펙 문서 수정 필요

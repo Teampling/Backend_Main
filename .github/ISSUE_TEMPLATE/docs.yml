@@ -1,0 +1,20 @@
+name: 📄 문서 작업
+description: 문서 작성
+title: "[DOCS] "
+labels: ["type: docs"]
+assignees: []
+
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: 🛠 작업 내용
+      placeholder: readme.md 작성
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: 📖 작업 이유
+      placeholder: 프로젝트 설명이 필요
