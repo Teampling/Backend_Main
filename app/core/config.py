@@ -9,28 +9,37 @@ class Settings(BaseSettings):
     )
 
     # APP
-    app_env: str = "dev"
-    app_name: str = "teampling-api"
+    APP_ENV: str
+    APP_NAME: str
 
-    # DATABASE (compose에도 쓰는 값들)
-    postgres_db: str
-    postgres_user: str
-    postgres_password: str
-    database_url: str
+    # DATABASE
+    POSTGRES_DB: str
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_HOST: str
+    POSTGRES_PORT: str
+    @property
+    def DATABASE_URL(self) -> str:
+        return (
+            f"postgresql+psycopg2://"
+            f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}"
+            f"/{self.POSTGRES_DB}"
+        )
 
     # JWT / AUTH
-    jwt_secret: str
-    jwt_alg: str = "HS256"
-    access_token_minutes: int = 30
-    refresh_token_days: int = 14
+    JWT_SECRET: str
+    JWT_ALG: str = "HS256"
+    ACCESS_TOKEN_MINUTES: int = 30
+    REFRESH_TOKEN_DAYS: int = 14
 
     # SECURITY
-    password_hash_rounds: int = 12
+    PASSWORD_HASH_ROUNDS: int = 12
 
     # CORS
-    cors_origins: str = ""
+    CORS_ORIGINS: str = ""
 
     # LOGGING
-    log_level: str = "INFO"
+    LOG_LEVEL: str = "INFO"
 
 settings = Settings()
