@@ -1,0 +1,57 @@
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# ========================
+# PyCharm / IDE
+# ========================
+.idea/
+*.iml
+
+# ========================
+# OS
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# Environment variables
+# ========================
+.env
+.env.*
+!.env.example
+
+# ========================
+# Docker
+# ========================
+*.log
+docker-compose.override.yml
+
+# ========================
+# Alembic
+# ========================
+alembic/versions/*.pyc
+
+# ========================
+# Test / Coverage
+# ========================
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ========================
+# Temporary / Runtime
+# ========================
+logs/
+*.sqlite3
