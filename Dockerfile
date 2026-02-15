@@ -1,12 +1,17 @@
 FROM python:3.12-slim
 
-WORKDIR /app
+RUN pip install poetry
+
+WORKDIR /teampling
 
 RUN pip install --no-cache-dir --upgrade pip
 
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY pyproject.toml poetry.lock ./
 
-COPY . /app
+RUN poetry config virtualenvs.create false
+
+RUN poetry install --no-root --only main
+
+COPY . .
 
 EXPOSE 8000

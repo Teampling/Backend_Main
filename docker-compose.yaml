@@ -1,7 +1,7 @@
+name: teampling-main-server
 services:
   db:
     image: postgres:16
-    container_name: teampling-postgres-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -12,7 +12,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -20,7 +20,6 @@ services:
   api:
     build:
       context: .
-    container_name: teampling-main-server
     restart: unless-stopped
     env_file:
       - .env
@@ -30,7 +29,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./app:/app/app  # 코드 바뀌면 바로 반영(개발용)
+      - ./app:/teampling/app  # 코드 바뀌면 바로 반영(개발용)
     command: >
       uvicorn app.main:app
       --host 0.0.0.0
