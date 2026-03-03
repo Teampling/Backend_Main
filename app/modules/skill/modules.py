@@ -16,7 +16,7 @@ class Skill(BaseModel, table=True):
         description="스킬 고유키"
     )
 
-    img_url: HttpUrl = Field(
+    img_url: str = Field(
         nullable=False,
         description="스킬 이미지 url"
     )
