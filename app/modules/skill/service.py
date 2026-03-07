@@ -55,11 +55,12 @@ class SkillService:
         if existing:
             raise AppError.bad_request(f"[{data.name}]은(는) 이미 존재하는 스킬 이름입니다.")
 
-        skill = Skill(**data.model_dump())
+        skill = Skill(**data.model_dump(mode="json"))
 
         try:
             saved = await self.repo.save(skill)
             await self.session.commit()
+            await self.session.refresh(saved)
             return saved
         except IntegrityError:
             await self.session.rollback()
@@ -70,7 +71,7 @@ class SkillService:
         if not skill:
             raise AppError.not_found(f"Skill[{skill_id}]")
 
-        patch = data.model_dump(exclude_unset=True)
+        patch = data.model_dump(mode="json", exclude_unset=True)
 
         if "name" in patch:
             new_name = patch["name"]
@@ -84,6 +85,7 @@ class SkillService:
         try:
             updated = await self.repo.save(skill)
             await self.session.commit()
+            await self.session.refresh(updated)
             return updated
         except IntegrityError:
             await self.session.rollback()
