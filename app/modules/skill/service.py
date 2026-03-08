@@ -104,3 +104,26 @@ class SkillService:
         except Exception:
             await self.session.rollback()
             raise
+
+    async def restore(self, skill_id: UUID) -> Skill:
+        skill = await self.repo.get_by_id(skill_id, include_deleted=True)
+        if not skill:
+            raise AppError.not_found(f"Skill[{skill_id}]")
+
+        if not skill.is_deleted:
+            raise AppError.bad_request(f"Skill[{skill_id}]은(는) 삭제된 상태가 아닙니다.")
+
+        try:
+            skill.is_deleted = False
+            skill.deleted_at = None
+
+            restored = await self.repo.save(skill)
+            await self.session.commit()
+            await self.session.refresh(restored)
+            return restored
+        except IntegrityError:
+            await self.session.rollback()
+            raise AppError.bad_request("스킬 복구 중 무결성 오류가 발생했습니다.")
+        except Exception:
+            await self.session.rollback()
+            raise

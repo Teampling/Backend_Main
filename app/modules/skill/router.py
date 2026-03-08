@@ -118,3 +118,21 @@ async def delete_skill(
         message="skill 삭제 성공",
         data=None
     )
+
+@router.patch(
+    "/{skill_id}/restore",
+    response_model=ApiResponse[SkillOut],
+    summary="스킬 복구",
+    description="soft delete 된 스킬을 복구합니다."
+)
+async def restore_skill(
+        session: DbSessionDep,
+        skill_id: Annotated[UUID, Path(description="복구할 skill ID")],
+):
+    service = SkillService(session)
+    restored = await service.restore(skill_id)
+    return ApiResponse.success(
+        code="SKILL_RESTORED",
+        message="skill 복구 성공",
+        data=SkillOut.model_validate(restored)
+    )
