@@ -27,6 +27,15 @@ class Settings(BaseSettings):
             f"/{self.POSTGRES_DB}"
         )
 
+    @property
+    def LOCAL_DATABASE_URL(self) -> str:
+        return (
+            f"postgresql+asyncpg://"
+            f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@localhost:{self.POSTGRES_PORT}"
+            f"/{self.POSTGRES_DB}"
+        )
+
     # JWT / AUTH
     JWT_SECRET: str
     JWT_ALG: str = "HS256"

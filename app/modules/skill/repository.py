@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.modules.skill.modules import Skill
-from app.modules.skill.schemas import SkillCreateIn, SkillUpdateIn
 
 
 class SkillRepository:

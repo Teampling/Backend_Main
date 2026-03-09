@@ -5,17 +5,26 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 
 from app.core.config import settings
 
-engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
+local_engine = create_async_engine(settings.LOCAL_DATABASE_URL)
 
 AsyncSessionLocal = async_sessionmaker(
-    bind=engine,
+    bind=local_engine,
+    class_=AsyncSession,
+    autoflush=False,
+    autocommit=False,
+)
+
+docker_engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
+
+AsyncSessionDocker = async_sessionmaker(
+    bind=docker_engine,
     class_=AsyncSession,
     autoflush=False,
     autocommit=False,
 )
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
+    async with AsyncSessionDocker() as session:
         yield session
 
 DbSessionDep = Annotated[AsyncSession, Depends(get_session)]
