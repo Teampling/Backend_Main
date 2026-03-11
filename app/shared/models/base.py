@@ -29,7 +29,7 @@ class BaseModel(SQLModel):
             "server_default": "false"
         },
     )
-    deleted_at: AwareDatetime = Field(
+    deleted_at: AwareDatetime | None = Field(
         default=None,
         nullable=True,
         sa_type=UtcDateTime,

@@ -21,9 +21,18 @@ class Settings(BaseSettings):
     @property
     def DATABASE_URL(self) -> str:
         return (
-            f"postgresql+psycopg2://"
+            f"postgresql+asyncpg://"
             f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}"
+            f"/{self.POSTGRES_DB}"
+        )
+
+    @property
+    def LOCAL_DATABASE_URL(self) -> str:
+        return (
+            f"postgresql+asyncpg://"
+            f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@localhost:{self.POSTGRES_PORT}"
             f"/{self.POSTGRES_DB}"
         )
 
