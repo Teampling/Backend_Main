@@ -1,3 +1,6 @@
+from unittest.mock import AsyncMock
+
+import pytest
 import pytest_asyncio
 from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
@@ -5,6 +8,7 @@ from sqlmodel import SQLModel
 
 from app.core.config import settings
 from app.modules.skill.modules import Skill
+from app.modules.skill.repository import SkillRepository
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -39,10 +43,22 @@ async def session(engine):
         yield session
         await session.rollback()
 
+@pytest.fixture
+def mock_session():
+    session = AsyncMock(spec=AsyncSession)
+    return session
+
 @pytest_asyncio.fixture
 async def skill_repo(session: AsyncSession):
     from app.modules.skill.repository import SkillRepository
     return SkillRepository(session)
+
+@pytest_asyncio.fixture
+async def skill_service(mock_session: AsyncSession):
+    from app.modules.skill.service import SkillService
+    service = SkillService(mock_session)
+    service.repo = AsyncMock(spec=SkillRepository)
+    return service
 
 @pytest_asyncio.fixture
 async def skill_factory(session: AsyncSession):
