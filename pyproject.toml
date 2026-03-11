@@ -28,3 +28,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 package-mode = false
+[dependency-groups]
+dev = [
+    "httpx (>=0.28.1,<0.29.0)"
+]
