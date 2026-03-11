@@ -1,22 +1,30 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from typing import AsyncGenerator, Annotated
+
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from app.core.config import settings
 
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+local_engine = create_async_engine(settings.LOCAL_DATABASE_URL)
 
-SessionLocal = sessionmaker(
-    bind=engine,
+AsyncSessionLocal = async_sessionmaker(
+    bind=local_engine,
+    class_=AsyncSession,
     autoflush=False,
     autocommit=False,
 )
 
-class Base(DeclarativeBase):
-    pass
+docker_engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+AsyncSessionDocker = async_sessionmaker(
+    bind=docker_engine,
+    class_=AsyncSession,
+    autoflush=False,
+    autocommit=False,
+)
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionDocker() as session:
+        yield session
+
+DbSessionDep = Annotated[AsyncSession, Depends(get_session)]

@@ -4,10 +4,12 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from app.core.config import settings
+from app.core.exception_handler import register_exception_handlers
 from app.core.exceptions import AppError
 from app.core.logger import setup_logging
 from app.core.middleware import RequestIdMiddleware
 from app.shared.schemas import ApiResponse
+from app.modules.skill.router import router as skill_router
 
 class HealthOut(BaseModel):
     status: str = Field(example="ok")
@@ -23,6 +25,12 @@ class HealthOut(BaseModel):
 def create_app() -> FastAPI:
     setup_logging()
     app = FastAPI(title=settings.APP_NAME)
+
+    # Exception Handler 등록
+    register_exception_handlers(app)
+
+    # Router 등록
+    app.include_router(skill_router)
 
     # Middleware
     app.add_middleware(RequestIdMiddleware)
