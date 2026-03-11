@@ -1,13 +1,18 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Query, Path, status
+from fastapi import APIRouter, Query, Path, status, Depends
 
 from app.core.database import DbSessionDep
 from app.modules.skill.schemas import SkillOut, SkillCreateIn, SkillUpdateIn
 from app.modules.skill.service import SkillService
 from app.shared.schemas import ApiResponse, PageOut
 
+
+def get_skill_service(session: DbSessionDep) -> SkillService:
+    return SkillService(session)
+
+SkillServiceDep = Annotated[SkillService, Depends(get_skill_service)]
 router = APIRouter(prefix="/skills", tags=["Skill"])
 
 @router.get(
@@ -17,13 +22,12 @@ router = APIRouter(prefix="/skills", tags=["Skill"])
     description="키워드, 페이지, 사이즈 조건으로 스킬 목록을 조회합니다.",
 )
 async def list_skills(
-    session: DbSessionDep,
+    service: SkillServiceDep,
     keyword: Annotated[str | None, Query(description="검색 키워드", example="Java")] = None,
     page: Annotated[int, Query(ge=1, description="페이지 번호")] = 1,
     size: Annotated[int, Query(ge=1, le=100, description="페이지 크기")] = 50,
     include_deleted: Annotated[bool, Query(description="soft delete된 데이터 포함 여부")] = False,
 ):
-    service = SkillService(session)
     result = await service.list(
         keyword=keyword,
         page=page,
@@ -49,11 +53,10 @@ async def list_skills(
     description="skill ID에 해당하는 스킬의 상세 정보를 조회합니다.",
 )
 async def get_skill(
-        session: DbSessionDep,
+        service: SkillServiceDep,
         skill_id: Annotated[UUID, Path(..., description="조회할 skill의 ID")],
         include_deleted: Annotated[bool, Query(description="soft delete된 데이터 포함 여부")] = False,
 ):
-    service = SkillService(session)
     skill = await service.get(skill_id, include_deleted=include_deleted)
     return ApiResponse.success(
         code="SKILL_FETCHED",
@@ -70,9 +73,8 @@ async def get_skill(
 )
 async def create_skill(
     data: SkillCreateIn,
-    session: DbSessionDep,
+    service: SkillServiceDep,
 ):
-    service = SkillService(session)
     created = await service.create(data)
     return ApiResponse.success(
         code="SKILL_CREATED",
@@ -88,10 +90,9 @@ async def create_skill(
 )
 async def update_skill(
     data: SkillUpdateIn,
-    session: DbSessionDep,
+    service: SkillServiceDep,
     skill_id: Annotated[UUID, Path(description="수정할 skill의 ID")],
 ):
-    service = SkillService(session)
     updated = await service.update(skill_id, data)
     return ApiResponse.success(
         code="SKILL_UPDATED",
@@ -107,11 +108,10 @@ async def update_skill(
     description="기존 스킬을 삭제합니다. hard=true이면 완전 삭제, false이면 soft delete 처리합니다.",
 )
 async def delete_skill(
-    session: DbSessionDep,
+    service: SkillServiceDep,
     skill_id: Annotated[UUID, Path(description="삭제할 skill의 ID")],
     hard: Annotated[bool, Query(description="true면 hard delete, false면 soft delete", example=False)] = False,
 ):
-    service = SkillService(session)
     await service.delete(skill_id, hard=hard)
     return ApiResponse.success(
         code="SKILL_DELETED",
@@ -126,10 +126,9 @@ async def delete_skill(
     description="soft delete 된 스킬을 복구합니다."
 )
 async def restore_skill(
-        session: DbSessionDep,
+        service: SkillServiceDep,
         skill_id: Annotated[UUID, Path(description="복구할 skill ID")],
 ):
-    service = SkillService(session)
     restored = await service.restore(skill_id)
     return ApiResponse.success(
         code="SKILL_RESTORED",
