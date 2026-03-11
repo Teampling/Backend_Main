@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlmodel import SQLModel
 
 from app.core.config import settings
-from app.modules.skill.modules import Skill
+from app.modules.skill.models import Skill
 from app.modules.skill.repository import SkillRepository
 from app.modules.skill.router import get_skill_service, router
 from app.modules.skill.service import SkillService

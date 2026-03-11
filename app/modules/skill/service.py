@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
-from app.modules.skill.modules import Skill
+from app.modules.skill.models import Skill
 from app.modules.skill.repository import SkillRepository
 from app.modules.skill.schemas import SkillCreateIn, SkillUpdateIn
 

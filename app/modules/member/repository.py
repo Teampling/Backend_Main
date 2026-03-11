@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.modules.member.modules import Member
+from app.modules.member.models import Member
 
 
 class MemberRepository:

@@ -6,18 +6,18 @@ from sqlmodel import Field, Relationship
 from app.shared.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.modules.project.modules import Project
+    from app.modules.project.models import Project
 
-class Notice(BaseModel, table=True):
-    __tablename__ = "notices"
+class Team(BaseModel, table=True):
+    __tablename__ = "teams"
 
-    project: "Project" = Relationship(back_populates="notices")
+    project: "Project" = Relationship(back_populates="teams")
 
     id: UUID = Field(
         default_factory=uuid4,
         primary_key=True,
         nullable=False,
-        description="공지 고유키"
+        description="팀 고유키"
     )
 
     project_id: UUID = Field(
@@ -25,12 +25,13 @@ class Notice(BaseModel, table=True):
         description="프로젝트 고유키"
     )
 
-    title: str = Field(
+    name: str = Field(
         nullable=False,
-        description="공지 제목"
+        description="팀 이름"
     )
 
-    detail: str = Field(
-        nullable=False,
-        description="공지 내용"
+    detail: str | None = Field(
+        default=None,
+        nullable=True,
+        description="팀 설명"
     )

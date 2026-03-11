@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
-from app.modules.member.modules import Member
+from app.modules.member.models import Member
 from app.modules.member.repository import MemberRepository
 
 

@@ -8,7 +8,7 @@ from sqlmodel import Field, Relationship
 from app.shared.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.modules.project.modules import Project
+    from app.modules.project.models import Project
 
 class Work(BaseModel, table=True):
     __tablename__ = "works"

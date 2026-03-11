@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.core.exceptions import AppError
-from app.modules.skill.modules import Skill
+from app.modules.skill.models import Skill
 from app.modules.skill.schemas import SkillCreateIn, SkillUpdateIn
 
 

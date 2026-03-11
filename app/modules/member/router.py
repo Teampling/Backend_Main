@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Path, Query
 
-from app.modules.member.modules import Member
+from app.modules.member.models import Member
 from app.modules.member.service import MemberService
 from app.shared.schemas import ApiResponse
 
