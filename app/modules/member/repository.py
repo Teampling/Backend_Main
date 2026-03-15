@@ -26,3 +26,20 @@ class MemberRepository:
             query = query.where(Member.is_deleted == False)
         #scalar= session 기능임, 코드로 만든 쿼리를 DB로 보내 결과값을 받는다
         return await self.session.scalar(query)
+
+    async def get_by_email(self, email: str, *, include_deleted: bool = False) -> Member | None:
+        query = select(Member).where(Member.email == email)
+        if not include_deleted:
+            query = query.where(Member.is_deleted == False)
+        return await self.session.scalar(query)
+
+    #flush: 롤백 가능한 상태로 DB에게 SQL을 날리는 함수
+    #롤백: SQL문을 없던 거로 돌리는 기능
+    #refresh: save(member: Member)에서는 DB에 넣기전에 코드만 짠거라 id값이 없는데,
+    #         DB에 add를 하면서 id가 자동 생성된 후의 데이터를 다시 가져오는 기능
+    async def save(self, member: Member) -> Member:
+        self.session.add(member) #uuid타입의 id가 자동 생성됨
+        #커밋 안하고 flush() 사용하는 이유: 커밋은 서비스에서 해야 될 역할이어서
+        await self.session.flush()
+        await self.session.refresh(member) #데이터를 DB에 저장되어 있는대로 다시 가져옴
+        return member
