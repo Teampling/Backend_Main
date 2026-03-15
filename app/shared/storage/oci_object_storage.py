@@ -1,15 +1,16 @@
 from io import BytesIO
 from pathlib import Path
+from typing import Annotated
 from uuid import uuid4
 
 import oci
-from fastapi import UploadFile
+from fastapi import UploadFile, Depends
 
 from app.core.config import settings
 from app.core.exceptions import AppError
 
 
-class OCIObjectStorageUtil:
+class OCIObjectStorageClient:
     ALLOWED_CONTENT_TYPES = {
         "image/jpeg": ".jpg",
         "image/png": ".png",
@@ -78,3 +79,8 @@ class OCIObjectStorageUtil:
         return (
             f"{self.base_url}/n/{self.namespace}/b/{self.bucket_name}/o/{object_name}"
         )
+
+def get_oci_object_storage_client() -> OCIObjectStorageClient:
+    return OCIObjectStorageClient()
+
+OCIObjectStorageClientDep = Annotated[OCIObjectStorageClient, Depends(get_oci_object_storage_client)]

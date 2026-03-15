@@ -1,34 +1,20 @@
 from uuid import UUID
 
-from pydantic import HttpUrl, ConfigDict
-from sqlmodel import SQLModel, Field
+from pydantic import HttpUrl, ConfigDict, Field
+from sqlmodel import SQLModel
 
 
 class SkillCreateIn(SQLModel):
-    name: str
-    img_url: HttpUrl
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "name": "Java",
-                "img_url": "https://example.com/skills/java.png"
-            }
-        }
-    }
+    name: str = Field(
+        description="스킬 이름",
+        examples=["Java"],
+    )
 
 class SkillUpdateIn(SQLModel):
-    name: str | None = None
-    img_url: HttpUrl | None = None
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "name": "Java",
-                "img_url": "https://example.com/skills/java.png"
-            }
-        }
-    }
+    name: str | None = Field(
+        description="스킬 이름",
+        examples=["Java"],
+    )
 
 class SkillOut(SQLModel):
     id: UUID

@@ -1,3 +1,4 @@
+from fastapi import UploadFile
 from sqlalchemy.exc import IntegrityError
 from typing import Any
 from uuid import UUID
@@ -8,12 +9,18 @@ from app.core.exceptions import AppError
 from app.modules.skill.modules import Skill
 from app.modules.skill.repository import SkillRepository
 from app.modules.skill.schemas import SkillCreateIn, SkillUpdateIn
+from app.shared.storage.oci_object_storage import OCIObjectStorageClient
 
 
 class SkillService:
-    def __init__(self, session: AsyncSession):
+    def __init__(
+            self,
+            session: AsyncSession,
+            storage: OCIObjectStorageClient,
+    ):
         self.session = session
         self.repo = SkillRepository(session)
+        self.storage = storage
 
     async def get(self, skill_id: UUID, *, include_deleted: bool = False) -> Skill:
         skill = await self.repo.get_by_id(skill_id, include_deleted=include_deleted)
@@ -50,12 +57,22 @@ class SkillService:
         )
         return {"items": items, "page": page, "size": size, "total": total}
 
-    async def create(self, data: SkillCreateIn) -> Skill:
+    async def create(
+            self,
+            data: SkillCreateIn,
+            icon_file: UploadFile | None = None,
+    ) -> Skill:
         existing = await self.repo.get_by_name(data.name)
         if existing:
             raise AppError.bad_request(f"[{data.name}]은(는) 이미 존재하는 스킬 이름입니다.")
 
-        skill = Skill(**data.model_dump(mode="json"))
+        payload = data.model_dump(mode="json")
+
+        if icon_file is not None:
+            image_url = await self.storage.upload_skill_image(file=icon_file, object_prefix="skill")
+            payload["image_url"] = image_url
+
+        skill = Skill(**payload)
 
         try:
             saved = await self.repo.save(skill)
@@ -63,10 +80,16 @@ class SkillService:
             await self.session.refresh(saved)
             return saved
         except IntegrityError:
+            # TODO: 실패 시 Oracle에 업로드한 파일은 다시 삭제하도록 구현
             await self.session.rollback()
             raise AppError.bad_request(f"[{data.name}]은(는) 이미 존재하는 스킬 이름입니다.")
 
-    async def update(self, skill_id: UUID, data: SkillUpdateIn) -> Skill:
+    async def update(
+            self,
+            skill_id: UUID,
+            data: SkillUpdateIn,
+            icon_file: UploadFile | None = None,
+    ) -> Skill:
         skill = await self.repo.get_by_id(skill_id, include_deleted=False)
         if not skill:
             raise AppError.not_found(f"Skill[{skill_id}]")
@@ -78,6 +101,10 @@ class SkillService:
             existing = await self.repo.get_by_name(new_name)
             if existing and existing.id != skill.id:
                 raise AppError.bad_request(f"[{new_name}]은(는) 이미 존재하는 스킬 이름입니다.")
+
+        if icon_file is not None:
+            image_url = await self.storage.upload_skill_image(file=icon_file, object_prefix="skill")
+            patch["image_url"] = image_url
 
         for k, v in patch.items():
             setattr(skill, k, v)
