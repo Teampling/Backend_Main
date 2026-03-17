@@ -36,7 +36,7 @@ class OCIObjectStorageClient:
         self.client = oci.object_storage.ObjectStorageClient(config)
         self.upload_manager = oci.object_storage.UploadManager(self.client)
 
-    async def upload_skill_image(
+    async def upload_object(
             self,
             *,
             file: UploadFile,
@@ -73,9 +73,16 @@ class OCIObjectStorageClient:
             content_type=content_type,
         )
 
-        return self._build_object_url(object_name)
+        return object_name
 
-    def _build_object_url(self, object_name: str) -> str:
+    async def delete_object(self, object_name: str) -> None:
+        self.client.delete_object(
+            namespace_name=self.namespace,
+            bucket_name=self.bucket_name,
+            object_name=object_name,
+        )
+
+    def build_object_url(self, object_name: str) -> str:
         return (
             f"{self.base_url}/n/{self.namespace}/b/{self.bucket_name}/o/{object_name}"
         )
@@ -83,4 +90,7 @@ class OCIObjectStorageClient:
 def get_oci_object_storage_client() -> OCIObjectStorageClient:
     return OCIObjectStorageClient()
 
-OCIObjectStorageClientDep = Annotated[OCIObjectStorageClient, Depends(get_oci_object_storage_client)]
+OCIObjectStorageClientDep = Annotated[
+    OCIObjectStorageClient,
+    Depends(get_oci_object_storage_client)
+]

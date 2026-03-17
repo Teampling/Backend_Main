@@ -68,9 +68,11 @@ class SkillService:
 
         payload = data.model_dump(mode="json")
 
+        icon_object_name = None
         if icon_file is not None:
-            image_url = await self.storage.upload_skill_image(file=icon_file, object_prefix="skill")
-            payload["image_url"] = image_url
+            icon_object_name = await self.storage.upload_object(file=icon_file, object_prefix="skill")
+            icon_object_url = self.storage.build_object_url(icon_object_name)
+            payload["img_url"] = icon_object_url
 
         skill = Skill(**payload)
 
@@ -79,10 +81,14 @@ class SkillService:
             await self.session.commit()
             await self.session.refresh(saved)
             return saved
-        except IntegrityError:
-            # TODO: 실패 시 Oracle에 업로드한 파일은 다시 삭제하도록 구현
+        except IntegrityError as e:
+            if icon_object_name:
+                try:
+                    await self.storage.delete_object(icon_object_name)
+                except Exception:
+                    pass
             await self.session.rollback()
-            raise AppError.bad_request(f"[{data.name}]은(는) 이미 존재하는 스킬 이름입니다.")
+            raise AppError.bad_request(f"스킬 생성 중 DB 무결성 오류가 발생했습니다: {str(e)}")
 
     async def update(
             self,
@@ -103,7 +109,7 @@ class SkillService:
                 raise AppError.bad_request(f"[{new_name}]은(는) 이미 존재하는 스킬 이름입니다.")
 
         if icon_file is not None:
-            image_url = await self.storage.upload_skill_image(file=icon_file, object_prefix="skill")
+            image_url = await self.storage.upload_object(file=icon_file, object_prefix="skill")
             patch["image_url"] = image_url
 
         for k, v in patch.items():
