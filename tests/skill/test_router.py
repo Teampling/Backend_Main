@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+from app.core.exceptions import AppError
+
 
 def test_list_skills는_정상응답을_반환한다(client, mock_skill_service, make_skill):
     items = [
@@ -83,12 +85,11 @@ def test_create_skill은_정상생성시_201을_반환한다(client, mock_skill_
     created = make_skill(name="Python", img_url="https://example.com/python.png")
     mock_skill_service.create.return_value = created
 
-    payload = {
-        "name": "Python",
-        "img_url": "https://example.com/python.png",
-    }
-
-    response = client.post("/skills", json=payload)
+    response = client.post(
+        "/skills",
+        data={"name": "Python"},
+        files={"icon_file": ("python.png", b"fake-image-data", "image/png")},
+    )
 
     assert response.status_code == 201
 
@@ -102,45 +103,47 @@ def test_create_skill은_정상생성시_201을_반환한다(client, mock_skill_
     mock_skill_service.create.assert_awaited_once()
     called_data = mock_skill_service.create.await_args.args[0]
     assert called_data.name == "Python"
-    assert str(called_data.img_url) == "https://example.com/python.png"
+    called_icon_file = mock_skill_service.create.await_args.kwargs["icon_file"]
+    assert called_icon_file is not None
+    assert called_icon_file.filename == "python.png"
 
 def test_create_skill은_name이_없으면_422를_반환한다(client, mock_skill_service):
-    payload = {
-        "img_url": "https://example.com/python.png",
-    }
-
-    response = client.post("/skills", json=payload)
+    response = client.post(
+        "/skills",
+        data={"name": ""},
+        files={"icon_file": ("python.png", b"fake-image-data", "image/png")},
+    )
 
     assert response.status_code == 422
     mock_skill_service.create.assert_not_called()
 
-def test_create_skill은_img_url형식이_잘못되면_422를_반환한다(client, mock_skill_service):
-    payload = {
-        "name": "Python",
-        "img_url": "not-a-url",
-    }
+def test_create_skill은_지원하지_않는_파일형식이면_400을_반환한다(client, mock_skill_service):
+    mock_skill_service.create.side_effect = AppError.bad_request("지원하지 않는 파일 형식입니다.")
 
-    response = client.post("/skills", json=payload)
+    response = client.post(
+        "/skills",
+        data={"name": "Python"},
+        files={"icon_file": ("test.txt", b"hello", "text/plain")},
+    )
 
-    assert response.status_code == 422
-    assert any(err["loc"][-1] == "img_url" for err in response.json()["detail"])
-    mock_skill_service.create.assert_not_called()
+    assert response.status_code == 400
+    body = response.json()
+    assert body["detail"]["code"] == "BAD_REQUEST"
 
 def test_update_skill은_정상수정시_200을_반환한다(client, mock_skill_service, make_skill):
     skill_id = uuid4()
     updated = make_skill(
         skill_id=skill_id,
-        name="PyTest",
-        img_url="https://example.com/pytest.png",
+        name="Python",
+        img_url="https://example.com/python.png",
     )
     mock_skill_service.update.return_value = updated
 
-    payload = {
-        "name": "PyTest",
-        "img_url": "https://example.com/pytest.png",
-    }
-
-    response = client.patch(f"/skills/{skill_id}", json=payload)
+    response = client.patch(
+        f"/skills/{skill_id}",
+        data={"name": "Python"},
+        files={"icon_file": ("python.png", b"fake-image-data", "image/png")},
+    )
 
     assert response.status_code == 200
 
@@ -148,39 +151,48 @@ def test_update_skill은_정상수정시_200을_반환한다(client, mock_skill_
     assert body["code"] == "SKILL_UPDATED"
     assert body["message"] == "skill 수정 성공"
     assert body["data"]["id"] == str(skill_id)
-    assert body["data"]["name"] == "PyTest"
-    assert body["data"]["img_url"] == "https://example.com/pytest.png"
+    assert body["data"]["name"] == "Python"
+    assert body["data"]["img_url"] == "https://example.com/python.png"
 
     mock_skill_service.update.assert_awaited_once()
     called_skill_id = mock_skill_service.update.await_args.args[0]
     called_data = mock_skill_service.update.await_args.args[1]
+    called_icon_file = mock_skill_service.update.await_args.kwargs["icon_file"]
 
     assert called_skill_id == skill_id
-    assert called_data.name == "PyTest"
-    assert str(called_data.img_url) == "https://example.com/pytest.png"
+    assert called_data.name == "Python"
+    assert called_icon_file is not None
+    assert called_icon_file.filename == "python.png"
 
 def test_update_skill은_UUID형식이_아니면_422를_반환한다(client, mock_skill_service):
-    payload = {
-        "name": "PyTest",
-        "img_url": "https://example.com/pytest.png",
-    }
-
-    response = client.patch("/skills/not-a-uuid", json=payload)
+    response = client.patch(
+        "/skills/not-a-uuid",
+        data={"name": "Python"},
+        files={"icon_file": ("python.png", b"fake-image-data", "image/png")},
+    )
 
     assert response.status_code == 422
     mock_skill_service.update.assert_not_called()
 
-def test_update_skill은_img_url형식이_잘못되면_422를_반환한다(client, mock_skill_service):
+def test_update_skill은_지원하지_않는_파일형식이면_400을_반환한다(client, mock_skill_service):
     skill_id = uuid4()
-    payload = {
-        "img_url": "invalid-url",
-    }
+    mock_skill_service.update.side_effect = AppError.bad_request("지원하지 않는 파일 형식입니다.")
 
-    response = client.patch(f"/skills/{skill_id}", json=payload)
+    response = client.patch(
+        f"/skills/{skill_id}",
+        data={"name": "Python"},
+        files={"icon_file": ("test.txt", b"hello", "text/plain")},
+    )
 
-    assert response.status_code == 422
-    assert any(err["loc"][-1] == "img_url" for err in response.json()["detail"])
-    mock_skill_service.update.assert_not_called()
+    assert response.status_code == 400
+    body = response.json()
+
+    if "code" in body:
+        assert body["code"] == "BAD_REQUEST"
+    else:
+        assert body["detail"]["code"] == "BAD_REQUEST"
+
+    mock_skill_service.update.assert_awaited_once()
 
 def test_delete_skill은_기본적으로_soft_delete를_수행한다(client, mock_skill_service):
     skill_id = uuid4()
