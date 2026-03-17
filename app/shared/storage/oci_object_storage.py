@@ -1,6 +1,7 @@
 from io import BytesIO
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlparse, unquote
 from uuid import uuid4
 
 import oci
@@ -86,6 +87,22 @@ class OCIObjectStorageClient:
         return (
             f"{self.base_url}/n/{self.namespace}/b/{self.bucket_name}/o/{object_name}"
         )
+
+    def extract_object_name(self, url: str) -> str:
+        try:
+            parsed = urlparse(url)
+
+            path = parsed.path
+
+            if "/o/" not in path:
+                raise AppError.bad_request("잘못된 이미지 URL입니다.")
+
+            object_name = path.split("/o/", 1)[1]
+
+            return unquote(object_name)
+
+        except Exception:
+            raise AppError.bad_request("잘못된 이미지 URL입니다.")
 
 def get_oci_object_storage_client() -> OCIObjectStorageClient:
     return OCIObjectStorageClient()

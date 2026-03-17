@@ -19,6 +19,6 @@ class SkillUpdateIn(SQLModel):
 class SkillOut(SQLModel):
     id: UUID
     name: str
-    img_url: HttpUrl
+    img_url: HttpUrl | None
 
     model_config = ConfigDict(from_attributes=True)
