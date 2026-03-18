@@ -1,8 +1,10 @@
 #DB 관련 기능
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.modules.member.models import Member
 
@@ -43,3 +45,31 @@ class MemberRepository:
         await self.session.flush()
         await self.session.refresh(member) #데이터를 DB에 저장되어 있는대로 다시 가져옴
         return member
+
+    async def soft_delete(self, member: Member) -> Member:
+        member.is_deleted = True
+        member.deleted_at = datetime.now(timezone.utc) #아직 DB에 반영 안 됨 (메모리 상태)
+
+        #flush와 commit의 차이
+        #flush: DB에 반영, 롤백 가능
+        #commit: 최종 저장, 롤백 어려움
+
+        #DB에 지금까지 변경사항 반영해줘(commit은 아님)
+        #DB에 UPDATE 쿼리 날림
+        await self.session.flush()
+        #DB 기준으로 최신 상태 다시 가져와줘
+        #refresh 사용 이유: DB에서 자동으로 바뀐 값 반영, 트리거 & default 값 반영
+        #refresh 안 하면 위에서 한거 반영 안 됨!!
+        await self.session.refresh(member)
+        return member #삭제된 상태의 Member 객체 반환
+
+    async def hard_delete(self, member: Member) -> None:
+        #이 객체 DB에서 삭제 대상으로 표시한다는 의미
+        #밑에 줄만 실행하면 DB에서 삭제 안 되고, 그냥 삭제 예정 상태가 됨.
+        await self.session.delete(member)
+        #지금까지 변경사항 DB에 반영해줘->진짜 삭제
+        await self.session.flush()
+        #refresh 대상 없음, None이기에 return도 X
+
+
+
