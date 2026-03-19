@@ -5,10 +5,13 @@ from uuid import UUID
 from fastapi import APIRouter, Path, Query, Depends, status
 
 from app.core.database import DbSessionDep
-from app.modules.member.models import Member
 from app.modules.member.schemas import MemberCreateIn, MemberOut, MemberUpdateIn
 from app.modules.member.service import MemberService
-from app.shared.schemas import ApiResponse
+from app.shared.schemas import ApiResponse, PageOut
+
+
+#전체 흐름
+#Client -> HTTP 요청 -> Router -> Service -> Repository -> DB
 
 #MemberService를 모든 Member api 함수들에게 의존성 주입을 하기 위한 과정
 def get_member_service(session: DbSessionDep) -> MemberService:
@@ -20,6 +23,45 @@ MemberServiceDep = Annotated[MemberService, Depends(get_member_service)]
 #prefix: 앞에 공통적으로 들어갈 경로명
 #tags: Swagger에서 API를 분류할 때 사용하는 것
 router = APIRouter(prefix="/members", tags=["Member"])
+
+#회원 목록 조회 API를 만드는 코드
+@router.get(
+    path="",
+    #응답 구조: ApiResponse - data: PageOut - items: MemberOut 리스트
+    response_model=ApiResponse[PageOut[MemberOut]],
+    summary="회원 목록 조회",
+    description="키워드, 페이지, 사이즈 조건으로 회원 목록을 조회합니다.",
+)
+async def list_members(
+        service: MemberServiceDep,
+        keyword: Annotated[str | None, Query(description="검색 키워드", example="수진")] = None,
+        #ge: 이상, le: 이하
+        page: Annotated[int,Query(ge=1, description="페이지 번호")] = 1,
+        size: Annotated[int, Query(ge=1, le=100, description="페이지 크기")] = 50,
+        include_deleted: Annotated[bool, Query(description="soft delete된 데이터 포함 여부")] = False,
+):
+    result = await service.list(
+        keyword=keyword,
+        page=page,
+        size=size,
+        include_deleted=include_deleted,
+    )
+
+    #응답 만드는 부분
+    return ApiResponse(
+        code="MEMBER_LIST_FETCHED",
+        message="member 목록 조회 성공",
+        #페이지 구조 생성
+        data=PageOut[MemberOut](
+            #DB 객체 -> API 응답용 모델로 변환
+            #DB 모델 그대로 보내면 위험함: 불필요한 필드 포함, 보안 문제
+            #그래서 Member -> MemberOut으로 변환
+            items=[MemberOut.model_validate(item) for item in result["items"]],
+            page=result["page"],
+            size=result["size"],
+            total=result["total"],
+        ),
+    )
 
 #path: 경로, response_model: Swagger에서 보여줄 응답 예시 형태
 #summary: Swagger에서 보여줄 간단한 API 설명

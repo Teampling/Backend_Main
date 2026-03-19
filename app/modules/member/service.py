@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import patch
 from uuid import UUID
 
@@ -22,6 +23,61 @@ class MemberService:
             #f"aaa{ddd}": 문자열 aaa 뒤에 변수 ddd의 값을 추가할 수 있는 기능
             raise AppError.not_found(f"Member[{member_id}]")
         return member
+
+    #list, count 서비스 부분
+    #연결: Service(page, size) -> offset 계산 ->
+    #-> Repository(offset, limit) -> DB에서 조회
+    #사용자 요청을 받아서 repository에 맞게 변환
+    async def list(
+            self,
+            *,
+            keyword: str | None = None,
+            page: int = 1, #기본값
+            size: int = 50, #기본값
+            include_deleted: bool = False,
+    ) -> dict[str, Any]:
+        #문자열로 된 이름(key)을 쓰고 그 안에는 아무 데이터(value)를 넣을 수 있는 자료구조(딕셔너리)
+        #dict[str, Any] = key는 str, value는 Any인 dict
+
+        #페이지는 1부터 시작해야 하니까 0, -1 들어오면 1로 바꿔줌
+        if page < 1:
+            page = 1
+        #한 번에 가져오는 데이터 수 제한
+        #너무 적으면 1개로, 너무 많으면 100개로 제한
+        if size < 1:
+            size = 1
+        if size > 100:
+            size = 100
+
+        #page는 1부터 시작!! offset은 0부터 시작!!
+        #ex) page= 1, size= 50
+        #offset = (1-1)*50 = 0
+        #즉, 0번부터 가져옴, 1~50번째 데이터
+        offset = (page - 1) * size
+
+        #repository.list 호출 => repository가 하는 일: 실제 DB에서 데이터 가져오기
+        #items: 실제 데이터 목록, repository의 list()에서 가져온 결과
+        #현재 페이지에 해당하는 데이터들
+        #즉, 사용자에게 보여줄 데이터
+        items = await self.repository.list(
+            keyword=keyword,
+            offset=offset,
+            limit=size,
+            include_deleted=include_deleted,
+        )
+        #total: 전체 데이터 개수, repository의 count()에서 가져온 값
+        #즉, 조건에 맞는 전체 데이터 수
+        total = await self.repository.count(
+            keyword=keyword,
+            include_deleted=include_deleted,
+        )
+        #이 4개가 세트! 위에 설명 참고!
+        return {
+            "items": items,
+            "page": page,
+            "size": size,
+            "total": total
+        }
 
     #멤버 생성 서비스(save)
     async def create(self, data: MemberCreateIn) -> Member:

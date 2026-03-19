@@ -2,9 +2,9 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.modules.member.models import Member
 
@@ -34,6 +34,78 @@ class MemberRepository:
         if not include_deleted:
             query = query.where(Member.is_deleted == False)
         return await self.session.scalar(query)
+
+    #list() = 회원 데이터 보여주기
+    #count() = 회원 총 몇 명인지 알려주기
+    #회원 목록을 검색 + 정렬 + 페이지 나눠서 가져오는 함수
+    async def list(
+            self,
+            *,
+            #검색어가 있을 수도 없을 수도..
+            #값 있으면 검색, 값 없으면(None) 전체 조회
+            keyword: str | None = None,
+            #몇 개 건너뛸지, 스킵(페이지 시작)
+            #0번째부터 시작(처음부터 시작)
+            offset: int = 0,
+            #최대 몇 개까지 가져올지(페이지 크기)
+            #한 번에 최대 100개까지 조회
+            limit: int = 100,
+            #삭제된 회원 포함 여부, 기본적으로 삭제된 회원은 포함X
+            include_deleted: bool = False,
+    ) -> list[Member]: #리스트로 나옴
+        #SQL 느낌
+        #SELECT * FROM member와 같은 뜻
+        #아직 실행X, 회원 다 가져올 준비..
+        stmt = select(Member)
+
+        if keyword:
+            #Member.name(이름)에 keyword가 포함된 회원만 찾으라는 뜻
+            #ilike: 대소문자 구분 없이 검색
+
+            #f"": 변수 값을 문자열에 넣는 문법
+            #ex) keyword = "python" f"{keyword}" => 결과: "python"
+            #keyword%: keyword로 시작, %keyword: keyword로 끝, %keyword%: keyword 포함
+            stmt = stmt.where(Member.name.ilike(f"%{keyword}%")) #"keyword" 포함(대소문자 구분X)
+        #삭제된 회원을 숨길지 말지 정하는 코드
+        #include_deleted는 기본값이 false인데 not이 붙었으므로 true가 됨.
+        #false일 때 조건문이 실행X, true일 때 조건문 실행(파이썬 문법)
+        if not include_deleted: #삭제된 거 안 보여줄 거면
+            stmt = stmt.where(Member.is_deleted == False) #삭제 안 된 애들만 가져와
+
+        #정렬 & 페이지
+        #order_by, asc: 이름 오름차순으로 정렬
+        #offset: 앞에서부터 몇 개 건너뜀(스킵)
+        #limit: 몇 개 가져올지 제한
+        #ex) offset = 0, limit = 10 => 1~10번째 회원
+        #ex) offset = 10, limit = 10 => 11~20번째 회원
+        stmt = stmt.order_by(Member.name.asc()).offset(offset).limit(limit)
+        #실행!!
+        #scalars(): Member 객체만 꺼냄
+        #.all(): 리스트로 반환
+        #결과: [Member(), Member(), Member()]
+        return (await self.session.scalars(stmt)).all()
+
+    #list 함수는 데이터 가져오기(총 몇 개인지 모름..=> 회원 명 수는 알아도 페이지 수를 모름)
+    #count 함수는 페이지 수 계산
+    async def count(
+            self,
+            *,
+            keyword: str | None = None,
+            include_deleted: bool = False) -> int: #숫자로 나옴
+        #SELECT COUNT(*) FROM member 느낌..
+        stmt = select(func.count()).select_from(Member)
+
+        #list랑 count는 조건이 완전히 같아야 페이지가 맞아서 조건 부분이 동일.
+        if keyword:
+            stmt = stmt.where(Member.name.ilike(f"%{keyword}%"))
+
+        if not include_deleted:
+            stmt = stmt.where(Member.is_deleted == False)
+
+        #scalar(): 숫자 하나 가져옴
+        #or 0: 값 없으면 0
+        #int(): 정수로 변환
+        return int(await self.session.scalar(stmt) or 0) #숫자로 출력
 
     #flush: 롤백 가능한 상태로 DB에게 SQL을 날리는 함수
     #롤백: SQL문을 없던 거로 돌리는 기능
