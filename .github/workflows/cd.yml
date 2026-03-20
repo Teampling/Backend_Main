@@ -5,9 +5,6 @@ on:
     branches:
       - 'build/6-ci-cd-deploy'
 
-env:
-  IMAGE_NAME: ghcr.io/${{ steps.repo.outputs.repo }}/backend
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -23,12 +20,13 @@ jobs:
         id: vars
         run: echo "tag=${GITHUB_SHA}" >> $GITHUB_OUTPUT
 
+      - name: 이미지 경로 생성
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=ghcr.io/${REPO_LOWER}/backend" >> $GITHUB_ENV
+
       - name: GHCR 로그인
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: 레포 이름 소문자 변환
-        id: repo
-        run: echo "repo=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: 도커 이미지 빌드
         run: |
