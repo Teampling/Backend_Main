@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: #[develop, main]
+      - 'build/6-ci-cd-deploy'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U testuser -d testdb"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 파이썬 환경 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 의존성 설치
+        run: |
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-interaction --no-ansi
+
+      - name: 테스트 실행
+        env:
+          DATABASE_URL: postgresql+psycopg://testuser:testpass@localhost:5432/testdb
+        run: pytest -q
+
+      - name: Alembic 마이그레이션 테스트
+        env:
+          DATABASE_URL: postgresql+psycopg://testuser:testpass@localhost:5432/testdb
+        run: alembic upgrade head
+
+      - name: 도커 빌드 테스트
+        run: docker build -f Dockerfile -t backend:test .
