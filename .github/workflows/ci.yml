@@ -13,6 +13,8 @@ jobs:
       postgres:
         image: postgres:16
         env:
+          APP_ENV: test
+          APP_NAME: teampling-test
           POSTGRES_DB: testdb
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: testpass

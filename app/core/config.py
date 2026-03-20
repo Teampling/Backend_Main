@@ -37,7 +37,7 @@ class Settings(BaseSettings):
         )
 
     # JWT / AUTH
-    JWT_SECRET: str
+    JWT_SECRET: str = ""
     JWT_ALG: str = "HS256"
     ACCESS_TOKEN_MINUTES: int = 30
     REFRESH_TOKEN_DAYS: int = 14
@@ -52,13 +52,12 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # Oracle Cloud Storage
-    OCI_USER_OCID: str
-    OCI_API_KEY_PATH: str
-    OCI_FINGERPRINT: str
-    OCI_TENANCY_OCID: str
-    OCI_REGION: str
-
-    OCI_OBJECT_STORAGE_NAMESPACE: str
-    OCI_OBJECT_STORAGE_BUCKET: str
+    OCI_USER_OCID: str = ""
+    OCI_API_KEY_PATH: str = ""
+    OCI_FINGERPRINT: str = ""
+    OCI_TENANCY_OCID: str = ""
+    OCI_REGION: str = ""
+    OCI_OBJECT_STORAGE_NAMESPACE: str = ""
+    OCI_OBJECT_STORAGE_BUCKET: str = ""
 
 settings = Settings()
