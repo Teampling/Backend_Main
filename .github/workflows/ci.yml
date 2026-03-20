@@ -3,8 +3,8 @@ name: CI
 on:
   pull_request:
   push:
-    branches: #[develop, main]
-      - 'build/6-ci-cd-deploy'
+    branches: [develop, main]
+
 jobs:
   test:
     runs-on: ubuntu-latest
