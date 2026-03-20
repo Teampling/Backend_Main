@@ -41,11 +41,13 @@ jobs:
 
       - name: 테스트 실행
         env:
+          PYTHONPATH: ${{ github.workspace }}
           DATABASE_URL: postgresql+psycopg://testuser:testpass@localhost:5432/testdb
         run: pytest -q
 
       - name: Alembic 마이그레이션 테스트
         env:
+          PYTHONPATH: ${{ github.workspace }}
           DATABASE_URL: postgresql+psycopg://testuser:testpass@localhost:5432/testdb
         run: alembic upgrade head
 
