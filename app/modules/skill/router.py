@@ -1,16 +1,19 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Query, Path, status, Depends
+from fastapi import APIRouter, Query, Path, status, Depends, UploadFile
+from fastapi.params import Form, File
 
 from app.core.database import DbSessionDep
 from app.modules.skill.schemas import SkillOut, SkillCreateIn, SkillUpdateIn
 from app.modules.skill.service import SkillService
 from app.shared.schemas import ApiResponse, PageOut
+from app.shared.storage.oci_object_storage import OCIObjectStorageClientDep
+from app.shared.utils.form import as_form
 
 
-def get_skill_service(session: DbSessionDep) -> SkillService:
-    return SkillService(session)
+def get_skill_service(session: DbSessionDep, storage: OCIObjectStorageClientDep) -> SkillService:
+    return SkillService(session, storage)
 
 SkillServiceDep = Annotated[SkillService, Depends(get_skill_service)]
 router = APIRouter(prefix="/skills", tags=["Skill"])
@@ -72,10 +75,11 @@ async def get_skill(
     description="새로운 스킬을 생성합니다.",
 )
 async def create_skill(
-    data: SkillCreateIn,
     service: SkillServiceDep,
+    data: Annotated[SkillCreateIn, Depends(as_form(SkillCreateIn))],
+    icon_file: Annotated[UploadFile | None, File(description="업로드할 이미지 파일")] = None,
 ):
-    created = await service.create(data)
+    created = await service.create(data, icon_file=icon_file)
     return ApiResponse.success(
         code="SKILL_CREATED",
         message="skill 생성 성공",
@@ -89,11 +93,12 @@ async def create_skill(
     description="기존 스킬 정보를 부분 수정합니다.",
 )
 async def update_skill(
-    data: SkillUpdateIn,
     service: SkillServiceDep,
     skill_id: Annotated[UUID, Path(description="수정할 skill의 ID")],
+    data: Annotated[SkillUpdateIn, Depends(as_form(SkillUpdateIn))],
+    icon_file: Annotated[UploadFile | None, File(description="업로드할 이미지 파일")] = None,
 ):
-    updated = await service.update(skill_id, data)
+    updated = await service.update(skill_id, data, icon_file=icon_file)
     return ApiResponse.success(
         code="SKILL_UPDATED",
         message="skill 수정 성공",
