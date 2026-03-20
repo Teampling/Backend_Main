@@ -13,13 +13,9 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          APP_ENV: test
-          APP_NAME: teampling-test
           POSTGRES_DB: testdb
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: testpass
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: "5432"
         ports:
           - 5432:5432
         options: >-
@@ -27,6 +23,16 @@ jobs:
           --health-interval=5s
           --health-timeout=5s
           --health-retries=10
+
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      APP_ENV: test
+      APP_NAME: teampling-test
+      POSTGRES_DB: testdb
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
 
     steps:
       - name: 코드 체크아웃
@@ -45,13 +51,11 @@ jobs:
 
       - name: 테스트 실행
         env:
-          PYTHONPATH: ${{ github.workspace }}
           DATABASE_URL: postgresql+psycopg://testuser:testpass@localhost:5432/testdb
         run: pytest -q
 
       - name: Alembic 마이그레이션 테스트
         env:
-          PYTHONPATH: ${{ github.workspace }}
           DATABASE_URL: postgresql+psycopg://testuser:testpass@localhost:5432/testdb
         run: alembic upgrade head
 

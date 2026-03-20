@@ -49,7 +49,7 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT }}
           script: |
-            mkdir -p ~/teampling/docker
+            mkdir -p ~/teampling
 
       - name: 배포 파일 전송
         uses: appleboy/scp-action@v0.1.7
@@ -58,7 +58,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT }}
-          source: "docker-compose.prod.yml,nginx.conf"
+          source: "docker-compose.prod.yaml,nginx.conf"
           target: "~/teampling"
 
       - name: 서버 배포 실행
