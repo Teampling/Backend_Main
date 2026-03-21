@@ -1,7 +1,7 @@
 from typing import Any
-from unittest.mock import patch
 from uuid import UUID
 
+from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from app.modules.member.models import Member
 from app.modules.member.repository import MemberRepository
 from app.modules.member.schemas import MemberCreateIn, MemberUpdateIn
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto") #비밀번호 해쉬화
 
 class MemberService:
     def __init__(self, session: AsyncSession):
@@ -86,7 +87,12 @@ class MemberService:
             raise AppError.bad_request(f"[{data.email}]은(는) 이미 존재하는 회원 이메일입니다.")
 
         #dto 타입으로 들어온 데이터를 DB에 넣기 위해 SqlModel에 쓰는 데이터 타입으로 변환
-        member = Member(**data.model_dump(mode="json"))
+        #member = Member(**data.model_dump(mode="json")) #이대로 저장하면 데이터 안에 있는 password가 그대로 들어가서 보안 문제 생김
+        hashed_password = pwd_context.hash(data.password)
+        member = Member(
+            **data.model_dump(mode="json", exclude={"password"}),
+            password=hashed_password
+        )
         #pydantic의 dictionary 타입-> SqlModel 타입으로 변경
         #예시!!!
         #data = {
@@ -213,4 +219,14 @@ class MemberService:
         except Exception:
             await self.session.rollback()
             raise
+
+    #로그인 함수
+    async def login(self, email: str, password: str) -> Member:
+        member = await self.repository.get_by_email(email)
+
+        if not member:
+            raise AppError.not_found("회원이 존재하지 않습니다.")
+        if not pwd_context.verify(password, member.password):
+            raise AppError.bad_request("비밀번호가 틀렸습니다.")
+        return member
 

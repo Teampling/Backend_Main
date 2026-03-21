@@ -3,8 +3,9 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Path, Query, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import DbSessionDep
+from app.core.database import DbSessionDep, get_session
 from app.modules.member.schemas import MemberCreateIn, MemberOut, MemberUpdateIn
 from app.modules.member.service import MemberService
 from app.shared.schemas import ApiResponse, PageOut
@@ -184,3 +185,22 @@ async def restore_member(
         #쉽게 해서.. Member(DB용) -> MemberOut(응답용)
         data=MemberOut.model_validate(restored)
     )
+
+@router.post("/login")
+async def login_member(
+        email: str,
+        password: str,
+        #FastAPI가 자동으로 DB 연결(session)을 만들어서 넣어줌
+        #실제로 내부에서 일어나는 일(직접 session을 만들 필요X)
+        #get_session() 실행 -> DB 연결 생성 -> session 반환 -> login 함수에 자동 주입
+        session: AsyncSession = Depends(get_session),
+):
+    #Service는 DB를 써야하기 때문에 session을 넘겨줌
+    service = MemberService(session)
+    member = await service.login(email, password)
+
+    #프론트에 응답 보냄
+    return {
+        "id": member.id,
+        "email": member.email,
+    }
