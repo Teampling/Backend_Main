@@ -60,3 +60,10 @@ class MemberOut(SQLModel):
     #SqlModel 타입-> pydantic의 dictionary 타입으로 변경
     #이 함수를 통해 pydantic의 자동 데이터 검증도 가능해짐(router쪽 참고)
     model_config = ConfigDict(from_attributes=True)
+
+#토큰 응답용 dto
+class TokenOut(SQLModel):
+    access_token: str
+    refresh_token: str
+    #Bearer: Api가 인증 과정을 거칠 때 jwt token을 사용하도록 약속한 타입
+    token_type: str = "Bearer"

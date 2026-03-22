@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
-from app.core.security import password_hash, verify_password
+from app.core.security import password_hash, verify_password, create_access_token, create_refresh_token
 from app.modules.member.models import Member
 from app.modules.member.repository import MemberRepository
 from app.modules.member.schemas import MemberCreateIn, MemberUpdateIn
@@ -95,7 +95,7 @@ class MemberService:
             #enum 타입으로 shared.enums.py 안에 적어놓음. 오타 방지를 위해서 & 수정도 쉽게 하기 위해서
             provider=ProviderType.LOCAL,
             provider_id=None, #소셜 로그인이 아니어서
-            password=password_hash(data.password)
+            hashed_password=password_hash(data.password)
         )
         #pydantic의 dictionary 타입-> SqlModel 타입으로 변경
         #예시!!!
@@ -225,7 +225,7 @@ class MemberService:
             raise
 
     #로그인 함수
-    async def login(self, email: str, password: str) -> Member:
+    async def login(self, email: str, password: str) -> dict[str, str]:
         member = await self.repository.get_by_email(email)
 
         #사용자가 없거나 soft_delete 된 상태면 로그인을 막아야 함.
@@ -238,5 +238,9 @@ class MemberService:
 
         if not verify_password(plain_password=password, hashed_password=member.hashed_password):
             raise AppError.bad_request("비밀번호가 틀렸습니다.")
-        return member
+
+        return {
+            "access_token": create_access_token(data=str(member.id)),
+            "refresh_token": create_refresh_token(data=str(member.id)),
+        }
 
