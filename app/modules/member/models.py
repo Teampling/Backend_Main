@@ -41,7 +41,7 @@ class Member(BaseModel, table=True):
         description="회원 이메일"
     )
 
-    password: str | None = Field(
+    hashed_password: str | None = Field(
         unique=True,
         default=None,
         nullable=True,

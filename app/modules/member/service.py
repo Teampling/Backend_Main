@@ -1,16 +1,18 @@
 from typing import Any
 from uuid import UUID
 
-from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
+from app.core.security import password_hash, verify_password
 from app.modules.member.models import Member
 from app.modules.member.repository import MemberRepository
 from app.modules.member.schemas import MemberCreateIn, MemberUpdateIn
+from app.shared.enums import ProviderType
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto") #비밀번호 해쉬화
+
+#pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto") #비밀번호 해쉬화
 
 class MemberService:
     def __init__(self, session: AsyncSession):
@@ -88,10 +90,12 @@ class MemberService:
 
         #dto 타입으로 들어온 데이터를 DB에 넣기 위해 SqlModel에 쓰는 데이터 타입으로 변환
         #member = Member(**data.model_dump(mode="json")) #이대로 저장하면 데이터 안에 있는 password가 그대로 들어가서 보안 문제 생김
-        hashed_password = pwd_context.hash(data.password)
         member = Member(
             **data.model_dump(mode="json", exclude={"password"}),
-            password=hashed_password
+            #enum 타입으로 shared.enums.py 안에 적어놓음. 오타 방지를 위해서 & 수정도 쉽게 하기 위해서
+            provider=ProviderType.LOCAL,
+            provider_id=None, #소셜 로그인이 아니어서
+            password=password_hash(data.password)
         )
         #pydantic의 dictionary 타입-> SqlModel 타입으로 변경
         #예시!!!
@@ -224,9 +228,15 @@ class MemberService:
     async def login(self, email: str, password: str) -> Member:
         member = await self.repository.get_by_email(email)
 
-        if not member:
-            raise AppError.not_found("회원이 존재하지 않습니다.")
-        if not pwd_context.verify(password, member.password):
+        #사용자가 없거나 soft_delete 된 상태면 로그인을 막아야 함.
+        if not member or member.is_deleted:
+            raise AppError.unauthorized("이메일 또는 비밀번호가 일치하지 않습니다.")
+
+        #소셜 로그인 한 사용자는 password가 null이기 때문에 사용자들을 일반 로그인하지 못하게 한다.
+        if not member.hashed_password:
+            raise AppError.unauthorized("소셜 로그인 계정입니다. 해당 서비스로 로그인 하세요.")
+
+        if not verify_password(plain_password=password, hashed_password=member.hashed_password):
             raise AppError.bad_request("비밀번호가 틀렸습니다.")
         return member
 
