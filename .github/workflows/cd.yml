@@ -1,0 +1,85 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 이미지 태그 생성
+        id: vars
+        run: echo "tag=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+
+      - name: 이미지 경로 생성
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=ghcr.io/${REPO_LOWER}/backend" >> $GITHUB_ENV
+
+      - name: GHCR 로그인
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: QEMU 설정
+        uses: docker/setup-qemu-action@v3
+
+      - name: Buildx 설정
+        uses: docker/setup-buildx-action@v3
+
+      - name: 멀티 아키텍처 이미지 빌드 및 푸시
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -f Dockerfile \
+            -t $IMAGE_NAME:${{ steps.vars.outputs.tag }} \
+            -t $IMAGE_NAME:latest \
+            --push \
+            .
+
+      - name: 서버에 배포 디렉토리 생성
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script: |
+            mkdir -p ~/teampling
+
+      - name: 배포 파일 전송
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: "docker-compose.prod.yaml,nginx.conf"
+          target: "~/teampling"
+
+      - name: 서버 배포 실행
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script: |
+            cd /home/${{ secrets.DEPLOY_USER }}/teampling
+
+            export IMAGE_TAG=${{ steps.vars.outputs.tag }}
+
+            docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GHCR_PAT }}
+
+            docker compose -f docker-compose.prod.yaml pull app
+            docker compose -f docker-compose.prod.yaml run --rm app alembic upgrade head
+            docker compose -f docker-compose.prod.yaml up -d app nginx
+            
+            docker image prune -f
