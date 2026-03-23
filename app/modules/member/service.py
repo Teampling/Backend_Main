@@ -91,8 +91,9 @@ class MemberService:
         #dto 타입으로 들어온 데이터를 DB에 넣기 위해 SqlModel에 쓰는 데이터 타입으로 변환
         #member = Member(**data.model_dump(mode="json")) #이대로 저장하면 데이터 안에 있는 password가 그대로 들어가서 보안 문제 생김
         member = Member(
-            **data.model_dump(mode="json", exclude={"password"}),
+            **data.model_dump(exclude={"password", "profile_url"}),
             #enum 타입으로 shared.enums.py 안에 적어놓음. 오타 방지를 위해서 & 수정도 쉽게 하기 위해서
+            profile_url=str(data.profile_url) if data.profile_url is not None else None,
             provider=ProviderType.LOCAL,
             provider_id=None, #소셜 로그인이 아니어서
             hashed_password=password_hash(data.password)
@@ -128,7 +129,17 @@ class MemberService:
             raise AppError.not_found(f"Member[{member_id}")
 
         #exclude_unset: 코드 작성자가 해당 객체의 값을 지정할 때, 넣지 않은 값은 빼버리는 옵션
-        patch = data.model_dump(mode="json", exclude_unset=True)
+        patch = data.model_dump( #patch: 수정할 데이터
+            exclude={"password"},
+            exclude_unset=True,
+        )
+
+        #이 둘은 DB에 넣기 전 특수한 처리를 해줘야 해서 따로 빼서 처리.
+        if "profile_url" in patch and patch["profile_url"] is not None:
+            patch["profile_url"] = str(patch["profile_url"]) #profile_url 수정값을 문자열로 강제 형변환
+
+        if data.password is not None:
+            patch["hashed_password"] = password_hash(data.password)
 
         #수정할 값인 patch(dictionary 타입임)의 items()를 사용하여 key와 value를 하나하나 가져옴
         #ex)

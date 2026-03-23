@@ -2,7 +2,9 @@ from datetime import timedelta, datetime, timezone
 from typing import Any
 
 import jwt
+from jwt import ExpiredSignatureError
 from passlib.context import CryptContext
+from passlib.exc import InvalidTokenError
 
 from app.core.config import settings
 
@@ -59,3 +61,15 @@ def create_refresh_token(data: str, expires_delta: timedelta | None = None) -> s
     # jwt에는 인자가 3개 들어감
     # 1. 숨겨놓을 데이터, 2. 복호화할 때 쓸 비밀키, 3. 암호화 할 알고리즘
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+def decode_token(token: str) -> dict[str, Any]:
+    try:
+        return jwt.decode(
+            token,
+            settings.JWT_SECRET,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+    except ExpiredSignatureError as e:
+        raise ValueError("만료된 토큰입니다.") from e
+    except InvalidTokenError as e:
+        raise ValueError("유효하지 않은 토큰입니다.") from e

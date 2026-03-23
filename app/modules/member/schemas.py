@@ -34,16 +34,16 @@ class MemberCreateIn(SQLModel):
     detail: str | None
 
 class MemberUpdateIn(SQLModel):
-    password: str | None
-    name: str
-    birth: date
-    gender: bool | None
-    phone_num: str
-    nickname: str | None
-    organization: str | None
-    dept: str | None
-    profile_url: HttpUrl | None
-    detail: str | None
+    password: str | None = None
+    name: str | None = None
+    birth: date | None = None
+    gender: bool | None = None
+    phone_num: str | None = None
+    nickname: str | None = None
+    organization: str | None = None
+    dept: str | None = None
+    profile_url: HttpUrl | None = None
+    detail: str | None = None
 
 #응답
 class MemberOut(SQLModel):

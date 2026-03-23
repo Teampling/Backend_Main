@@ -5,6 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Path, Query, Depends, status
 
 from app.core.database import DbSessionDep
+from app.core.exceptions import AppError
+from app.modules.member.dependencies import CurrentMemberDep
 from app.modules.member.schemas import MemberCreateIn, MemberOut, MemberUpdateIn, TokenOut
 from app.modules.member.service import MemberService
 from app.shared.schemas import ApiResponse, PageOut
@@ -123,7 +125,11 @@ async def update_member(
         service: MemberServiceDep,
         #이건 URL에서 받는 UUID(Path에서 가져옴) 라고 알려주는 거
         member_id: Annotated[UUID, Path(description="수정할 member의 ID")],
+        current_member: CurrentMemberDep
 ):
+    if current_member.id != member_id:
+        raise AppError.forbidden("본인 정보만 수정할 수 있습니다.")
+
     #DB 수정 → 수정된 객체 받음
     updated = await service.update(member_id, data)
     return ApiResponse.success(

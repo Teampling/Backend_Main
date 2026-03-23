@@ -2,12 +2,13 @@ import logging
 import time
 import uuid
 
-from h11 import Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+from starlette.responses import Response
 
 logger = logging.getLogger("request")
 
+#API가 호출되면 자동으로 서버에 로그를 찍어주는 함수
 class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
