@@ -33,8 +33,6 @@ class Notification(BaseModel, table=True):
     )
 
     target_id: UUID | None = Field(
-        default_factory=uuid4,
-        primary_key=True,
         default=None,
         nullable=True,
         description="알림 대상 고유키"
