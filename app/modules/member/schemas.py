@@ -65,7 +65,7 @@ class MemberUpdateIn(SQLModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "password": "password123!",
+                "password": "test1234!",
                 "name": "홍길동",
                 "birth": "1999-01-01",
                 "gender": True,

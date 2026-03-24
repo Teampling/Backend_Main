@@ -15,9 +15,9 @@ from app.shared.enums import ProviderType
 #pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto") #비밀번호 해쉬화
 
 class MemberService:
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, repository: MemberRepository):
         self.session = session
-        self.repository = MemberRepository(session)
+        self.repository = repository
 
     #get_by_id의 서비스
     async def get(self, member_id: UUID, *, include_deleted: bool = False) -> Member:
@@ -123,10 +123,13 @@ class MemberService:
 
     #멤버 수정 서비스(save)
     #여기서의 member_id는 수정을 원하는 회원 id인데 수정할 회원 id가 없으면 안되므로 이렇게 구현.
-    async def update(self, member_id: UUID, data: MemberUpdateIn) -> Member:
-        member = await self.repository.get_by_id(member_id, include_deleted=False)
+    async def update(self, target_member_id: UUID, actor_member_id: UUID, data: MemberUpdateIn) -> Member:
+        if actor_member_id != target_member_id:
+            raise AppError.forbidden("본인 정보만 수정할 수 있습니다.")
+
+        member = await self.repository.get_by_id(target_member_id, include_deleted=False)
         if not member:
-            raise AppError.not_found(f"Member[{member_id}")
+            raise AppError.not_found(f"Member[{target_member_id}")
 
         #exclude_unset: 코드 작성자가 해당 객체의 값을 지정할 때, 넣지 않은 값은 빼버리는 옵션
         patch = data.model_dump( #patch: 수정할 데이터
@@ -179,10 +182,13 @@ class MemberService:
 
     # 멤버 삭제 서비스(soft_delete, hard_delete)
     #member를 삭제하는데 hard=True면 진짜 삭제, 아니면 soft delete
-    async def delete(self, member_id: UUID, *, hard: bool = False) -> None:
+    async def delete(self, target_member_id: UUID, actor_member_id: UUID, *, hard: bool = False) -> None:
+        if actor_member_id != target_member_id:
+            raise AppError.forbidden("본인 정보만 삭제할 수 있습니다.")
+
         #삭제된 것이든 아니든 다 가져옴
         #왜냐하면, hard delete 하려면 이미 삭제된 것도 찾아야 하기 때문에
-        member = await self.get(member_id, include_deleted=True)
+        member = await self.get(target_member_id, include_deleted=True)
 
         try:
             if hard:

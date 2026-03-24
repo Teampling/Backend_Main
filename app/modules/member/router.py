@@ -5,23 +5,10 @@ from uuid import UUID
 from fastapi import APIRouter, Path, Query, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.core.database import DbSessionDep
-from app.core.exceptions import AppError
-from app.modules.member.dependencies import CurrentMemberDep
+from app.modules.member.dependencies import CurrentMemberDep, MemberServiceDep
 from app.modules.member.schemas import MemberCreateIn, MemberOut, MemberUpdateIn, TokenOut
-from app.modules.member.service import MemberService
 from app.shared.schemas import ApiResponse, PageOut
 
-
-#전체 흐름
-#Client -> HTTP 요청 -> Router -> Service -> Repository -> DB
-
-#MemberService를 모든 Member api 함수들에게 의존성 주입을 하기 위한 과정
-def get_member_service(session: DbSessionDep) -> MemberService:
-    return MemberService(session)
-
-#get_member_service() 실행하고 MemberService 만들어서 service에 넣어줘
-MemberServiceDep = Annotated[MemberService, Depends(get_member_service)]
 
 #prefix: 앞에 공통적으로 들어갈 경로명
 #tags: Swagger에서 API를 분류할 때 사용하는 것
@@ -117,22 +104,23 @@ async def create_member(
     description="회원 정보 수정 기능입니다."
 )
 async def update_member(
-        #요청 JSON → (검증 + 파싱) → MemberUpdateIn 객체 → data로 들어옴
-        #data는 검증 완료 된 Pydantic 객체
-        data: MemberUpdateIn,
         #요청 들어오면 service = get_member_service() 자동 실행
         #->update_member(data, service, member_id) 이렇게 넣어줌
         #즉, MemberService 객체를 자동으로 만들어서 service에 넣어줘라는 뜻
         service: MemberServiceDep,
+        current_member: CurrentMemberDep,
         #이건 URL에서 받는 UUID(Path에서 가져옴) 라고 알려주는 거
         member_id: Annotated[UUID, Path(description="수정할 member의 ID")],
-        current_member: CurrentMemberDep
+        #요청 JSON → (검증 + 파싱) → MemberUpdateIn 객체 → data로 들어옴
+        #data는 검증 완료 된 Pydantic 객체
+        data: MemberUpdateIn,
 ):
-    if current_member.id != member_id:
-        raise AppError.forbidden("본인 정보만 수정할 수 있습니다.")
-
     #DB 수정 → 수정된 객체 받음
-    updated = await service.update(member_id, data)
+    updated = await service.update(
+        target_member_id=member_id,
+        actor_member_id=current_member.id,
+        data=data
+    )
     return ApiResponse.success(
         code="MEMBER_UPDATED",
         message="member 수정 성공",
@@ -156,12 +144,17 @@ async def update_member(
 )
 async def delete_member(
         service: MemberServiceDep,
+        current_member: CurrentMemberDep,
         member_id: Annotated[UUID, Path(description="삭제할 회원의 ID")],
         hard: Annotated[bool, Query(description="true면 hard delete, false면 soft delete", example=False)] = False,
 ):
     #실제 삭제는 여기서 일어남
     #router는 요청 받기만 하고, Service가 진짜 일함
-    await service.delete(member_id, hard=hard)
+    await service.delete(
+        target_member_id=member_id,
+        actor_member_id=current_member.id,
+        hard=hard
+    )
     return ApiResponse.success(
         code="MEMBER_DELETED",
         message="member 삭제 성공",
