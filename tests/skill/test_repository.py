@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 from sqlmodel import select
 
-from app.modules.skill.modules import Skill
+from app.modules.skill.models import Skill
 from tests.conftest import skill_factory
 
 

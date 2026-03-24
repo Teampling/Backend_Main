@@ -6,8 +6,8 @@ from sqlmodel import Field, Relationship
 from app.shared.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.modules.project.modules import Project
-    from app.modules.member.modules import Member
+    from app.modules.project.models import Project
+    from app.modules.member.models import Member
 
 class Favorite(BaseModel, table=True):
     __tablename__ = "favorites"

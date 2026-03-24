@@ -7,9 +7,10 @@ from sqlmodel import Field, Relationship
 from app.shared.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.modules.resource.modules import Resource
-    from app.modules.favorite.modules import Favorite
+    from app.modules.resource.models import Resource
+    from app.modules.favorite.models import Favorite
 
+#dto랑 Model의 차이점: dto는 table=True가 없음. Model은 있음.
 class Member(BaseModel, table=True):
     __tablename__ = "members"
 
@@ -40,7 +41,7 @@ class Member(BaseModel, table=True):
         description="회원 이메일"
     )
 
-    password: str | None = Field(
+    hashed_password: str | None = Field(
         unique=True,
         default=None,
         nullable=True,
@@ -57,9 +58,14 @@ class Member(BaseModel, table=True):
         description="회원 생년월일"
     )
 
+    gender: bool | None = Field(
+        default=None,
+        nullable=True,
+        description="회원 성별(0: 남, 1: 여, null: 성별을 밝히고 싶지 않음)"
+    )
+
     phone_num: str = Field(
         max_length=20,
-        unique=True,
         nullable=False,
         description="회원 전화번호"
     )

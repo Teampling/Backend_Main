@@ -7,10 +7,11 @@ from sqlmodel import Field, Relationship
 from app.shared.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.modules.team.modules import Team
-    from app.modules.resource.modules import Resource
-    from app.modules.notice.modules import Notice
-    from app.modules.work.modules import Work
+    from app.modules.team.models import Team
+    from app.modules.resource.models import Resource
+    from app.modules.notice.models import Notice
+    from app.modules.work.models import Work
+    from app.modules.favorite.models import Favorite
 
 class Project(BaseModel, table=True):
     __tablename__ = "projects"
@@ -19,6 +20,7 @@ class Project(BaseModel, table=True):
     resources: list["Resource"] = Relationship(back_populates="project")
     notices: list["Notice"] = Relationship(back_populates="project")
     works: list["Work"] = Relationship(back_populates="project")
+    favorites: list["Favorite"] = Relationship(back_populates="project")
 
     id: UUID = Field(
         default_factory=uuid4,
