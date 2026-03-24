@@ -22,6 +22,7 @@ dependencies = [
     "pyjwt (>=2.12.1,<3.0.0)",
     "passlib[bcrypt] (>=1.7.4,<2.0.0)",
     "bcrypt (<5)"
+    "oci (>=2.168.1,<3.0.0)"
 ]
 
 

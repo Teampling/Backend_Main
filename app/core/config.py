@@ -51,4 +51,13 @@ class Settings(BaseSettings):
     # LOGGING
     LOG_LEVEL: str = "INFO"
 
+    # Oracle Cloud Storage
+    OCI_USER_OCID: str = ""
+    OCI_API_KEY_PATH: str = ""
+    OCI_FINGERPRINT: str = ""
+    OCI_TENANCY_OCID: str = ""
+    OCI_REGION: str = ""
+    OCI_OBJECT_STORAGE_NAMESPACE: str = ""
+    OCI_OBJECT_STORAGE_BUCKET: str = ""
+
 settings = Settings()

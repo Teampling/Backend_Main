@@ -14,6 +14,7 @@ from app.modules.skill.models import Skill
 from app.modules.skill.repository import SkillRepository
 from app.modules.skill.router import get_skill_service, router
 from app.modules.skill.service import SkillService
+from app.shared.storage.oci_object_storage import OCIObjectStorageClient
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -54,6 +55,11 @@ def mock_session():
     return session
 
 @pytest.fixture
+def mock_storage():
+    storage = AsyncMock(spec=OCIObjectStorageClient)
+    return storage
+
+@pytest.fixture
 def app(mock_skill_service):
     app = FastAPI()
     app.include_router(router)
@@ -70,9 +76,9 @@ async def skill_repo(session: AsyncSession):
     return SkillRepository(session)
 
 @pytest_asyncio.fixture
-async def skill_service(mock_session: AsyncSession):
+async def skill_service(mock_session: AsyncSession, mock_storage: OCIObjectStorageClient):
     from app.modules.skill.service import SkillService
-    service = SkillService(mock_session)
+    service = SkillService(mock_session, mock_storage)
     service.repo = AsyncMock(spec=SkillRepository)
     return service
 

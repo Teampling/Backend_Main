@@ -29,7 +29,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./app:/teampling/app  # 코드 바뀌면 바로 반영(개발용)
+      - ./app:/app/app
     command: >
       uvicorn app.main:app
       --host 0.0.0.0
