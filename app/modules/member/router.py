@@ -3,6 +3,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Path, Query, Depends, status
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.database import DbSessionDep
 from app.core.exceptions import AppError
@@ -194,19 +195,8 @@ async def restore_member(
 @router.post("/login")
 async def login_member(
         service: MemberServiceDep,
-        email: str,
-        password: str,
+        form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ):
-    tokens = await service.login(email, password)
+    tokens = await service.login(form_data.username, form_data.password)
 
-    return ApiResponse.success(
-        code="LOGIN_SUCCESS",
-        message="로그인 성공",
-        # **뒤에 나오는 dictionary를 확인해서 컬럼 명이 같은 데이터를 Tokenout에 넣어준다.
-        #ex) { "access_token": create_access_token(data=str(member.id)),
-        #    "refresh_token": create_refresh_token(data=str(member.id)) }
-        #이렇게 dictionary 타입이 되어있으면 Tokenout에서 access_token 컬럼이 있는지 확인하고
-        #있으면 create_access_token(data=str(member.id))를 넣는다.
-        #refresh 토큰도 동일한 방법으로 한다.
-        data=TokenOut(**tokens)
-    )
+    return TokenOut(**tokens)
