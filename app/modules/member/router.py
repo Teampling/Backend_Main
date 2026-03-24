@@ -110,7 +110,7 @@ async def create_member(
     )
 
 @router.patch(
-    path="{member_id}",
+    path="/{member_id}",
     response_model=ApiResponse[MemberOut],
     summary="회원 정보 수정",
     description="회원 정보 수정 기능입니다."

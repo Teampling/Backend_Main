@@ -1,8 +1,8 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.sql.annotation import Annotated
 
 from app.core.database import DbSessionDep
 from app.core.exceptions import AppError
