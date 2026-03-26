@@ -36,17 +36,17 @@ class MemberCreateIn(SQLModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "email": "test@example.com",
+                "email": "test@naver.com",
                 "password": "test1234!",
-                "name": "홍길동",
-                "birth": "1999-01-01",
+                "name": "송시월",
+                "birth": "2001-05-21",
                 "gender": True,
                 "phone_num": "01012345678",
-                "nickname": "길동이",
-                "organization": "한국대학교",
-                "dept": "산업디자인과",
+                "nickname": "쏴리쏭",
+                "organization": "한성대학교",
+                "dept": "컴퓨터공학과",
                 "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요~"
+                "detail": "안녕하세요!"
             }
         }
     }
@@ -67,15 +67,15 @@ class MemberUpdateIn(SQLModel):
         "json_schema_extra": {
             "example": {
                 "password": "test1234!",
-                "name": "홍길동",
-                "birth": "1999-01-01",
+                "name": "송시월",
+                "birth": "2001-05-21",
                 "gender": True,
                 "phone_num": "01012345678",
-                "nickname": "길동이",
-                "organization": "한국대학교",
-                "dept": "산업디자인과",
+                "nickname": "쏴리쏭",
+                "organization": "한성대학교",
+                "dept": "컴퓨터공학과",
                 "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요~"
+                "detail": "안녕하세요!"
             }
         }
     }
@@ -101,14 +101,14 @@ class MemberOut(SQLModel):
             "example": {
                 "id": "3e1672cf-8d99-4b1c-9b5e-9c3ece11b089",
                 "email": "test@example.com",
-                "name": "홍길동",
-                "birth": "1999-01-01",
+                "name": "송시월",
+                "birth": "2001-05-21",
                 "gender": True,
-                "nickname": "길동이",
-                "organization": "한국대학교",
-                "dept": "산업디자인과",
+                "nickname": "쏴리쏭",
+                "organization": "한성대학교",
+                "dept": "컴퓨터공학과",
                 "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요~"
+                "detail": "안녕하세요!"
             }
         }
     )
