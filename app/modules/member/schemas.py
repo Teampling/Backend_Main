@@ -129,3 +129,15 @@ class TokenOut(SQLModel):
             }
         }
     )
+
+#refreshToken 요청용 dto
+class RefreshTokenIn(SQLModel):
+    refresh_token: str = Field(description="리프레시 토큰 (JWT)")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            }
+        }
+    }

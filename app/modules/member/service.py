@@ -1,3 +1,4 @@
+from base64 import decode
 from typing import Any
 from uuid import UUID
 
@@ -5,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
-from app.core.security import password_hash, verify_password, create_access_token, create_refresh_token
+from app.core.security import password_hash, verify_password, create_access_token, create_refresh_token, decode_token
 from app.modules.member.models import Member
 from app.modules.member.repository import MemberRepository
 from app.modules.member.schemas import MemberCreateIn, MemberUpdateIn
@@ -260,4 +261,27 @@ class MemberService:
             "access_token": create_access_token(data=str(member.id)),
             "refresh_token": create_refresh_token(data=str(member.id)),
         }
+
+    #accessToken 재발급 함수
+    async def reissue(self, refresh_token: str) -> dict[str, str]:
+        try:
+            payload = decode_token(refresh_token)
+            member_id: str | None = payload.get("sub")
+            token_type: str | None = payload.get("type")
+
+            if member_id is None or token_type != "refresh":
+                raise AppError.unauthorized("유효하지 않은 refresh 토큰입니다.")
+
+            member = await self.get(UUID(member_id))
+            if not member or member.is_deleted:
+                raise AppError.unauthorized("존재하지 않거나 삭제된 사용자입니다.")
+
+            return {
+                "access_token": create_access_token(data=str(member.id)),
+                "refresh_token": create_refresh_token(data=str(member.id)),
+            }
+        except ValueError as e:
+            raise AppError.unauthorized(str(e))
+        except Exception as e:
+            raise AppError.unauthorized(f"토큰 재발급 과정에서 오류가 발생했습니다.: {str(e)}")
 
