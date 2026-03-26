@@ -57,7 +57,7 @@ async def list_members(
 #summary: Swagger에서 보여줄 간단한 API 설명
 #description: Swagger에서 보여줄 상세한 API 설명
 @router.get(
-    path="",
+    path="/{member_id}",
     response_model=ApiResponse[MemberOut],
     summary="멤버 단건 조회",
     description="member ID에 해당하는 멤버의 상세 정보를 조회합니다.",

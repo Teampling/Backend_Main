@@ -1,5 +1,6 @@
 #dto
 from datetime import date
+from uuid import UUID
 
 from pydantic import HttpUrl, ConfigDict, EmailStr
 from sqlmodel import SQLModel, Field
@@ -81,6 +82,7 @@ class MemberUpdateIn(SQLModel):
 
 #응답
 class MemberOut(SQLModel):
+    id: UUID = Field(description="회원 ID")
     email: EmailStr = Field(description="회원 이메일")
     name: str = Field(description="이름")
     birth: date = Field(description="생년월일")
@@ -97,6 +99,7 @@ class MemberOut(SQLModel):
         from_attributes=True,
         json_schema_extra={
             "example": {
+                "id": "3e1672cf-8d99-4b1c-9b5e-9c3ece11b089",
                 "email": "test@example.com",
                 "name": "홍길동",
                 "birth": "1999-01-01",
