@@ -33,6 +33,7 @@ jobs:
       POSTGRES_PASSWORD: testpass
       POSTGRES_HOST: localhost
       POSTGRES_PORT: "5432"
+      JWT_SECRET: test-secret-key
 
     steps:
       - name: 코드 체크아웃
