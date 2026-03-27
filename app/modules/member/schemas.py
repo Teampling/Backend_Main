@@ -1,5 +1,6 @@
 #dto
 from datetime import date
+from uuid import UUID
 
 from pydantic import HttpUrl, ConfigDict, EmailStr
 from sqlmodel import SQLModel, Field
@@ -35,17 +36,17 @@ class MemberCreateIn(SQLModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "email": "test@example.com",
+                "email": "test@naver.com",
                 "password": "test1234!",
-                "name": "홍길동",
-                "birth": "1999-01-01",
+                "name": "송시월",
+                "birth": "2001-05-21",
                 "gender": True,
                 "phone_num": "01012345678",
-                "nickname": "길동이",
-                "organization": "한국대학교",
-                "dept": "산업디자인과",
+                "nickname": "쏴리쏭",
+                "organization": "한성대학교",
+                "dept": "컴퓨터공학과",
                 "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요~"
+                "detail": "안녕하세요!"
             }
         }
     }
@@ -66,21 +67,22 @@ class MemberUpdateIn(SQLModel):
         "json_schema_extra": {
             "example": {
                 "password": "test1234!",
-                "name": "홍길동",
-                "birth": "1999-01-01",
+                "name": "송시월",
+                "birth": "2001-05-21",
                 "gender": True,
                 "phone_num": "01012345678",
-                "nickname": "길동이",
-                "organization": "한국대학교",
-                "dept": "산업디자인과",
+                "nickname": "쏴리쏭",
+                "organization": "한성대학교",
+                "dept": "컴퓨터공학과",
                 "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요~"
+                "detail": "안녕하세요!"
             }
         }
     }
 
 #응답
 class MemberOut(SQLModel):
+    id: UUID = Field(description="회원 ID")
     email: EmailStr = Field(description="회원 이메일")
     name: str = Field(description="이름")
     birth: date = Field(description="생년월일")
@@ -97,15 +99,16 @@ class MemberOut(SQLModel):
         from_attributes=True,
         json_schema_extra={
             "example": {
+                "id": "3e1672cf-8d99-4b1c-9b5e-9c3ece11b089",
                 "email": "test@example.com",
-                "name": "홍길동",
-                "birth": "1999-01-01",
+                "name": "송시월",
+                "birth": "2001-05-21",
                 "gender": True,
-                "nickname": "길동이",
-                "organization": "한국대학교",
-                "dept": "산업디자인과",
+                "nickname": "쏴리쏭",
+                "organization": "한성대학교",
+                "dept": "컴퓨터공학과",
                 "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요~"
+                "detail": "안녕하세요!"
             }
         }
     )
@@ -126,3 +129,15 @@ class TokenOut(SQLModel):
             }
         }
     )
+
+#refreshToken 요청용 dto
+class RefreshTokenIn(SQLModel):
+    refresh_token: str = Field(description="리프레시 토큰 (JWT)")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            }
+        }
+    }

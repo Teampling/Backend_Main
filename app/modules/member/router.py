@@ -6,7 +6,7 @@ from fastapi import APIRouter, Path, Query, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.modules.member.dependencies import CurrentMemberDep, MemberServiceDep
-from app.modules.member.schemas import MemberCreateIn, MemberOut, MemberUpdateIn, TokenOut
+from app.modules.member.schemas import MemberCreateIn, MemberOut, MemberUpdateIn, TokenOut, RefreshTokenIn
 from app.shared.schemas import ApiResponse, PageOut
 
 
@@ -57,7 +57,7 @@ async def list_members(
 #summary: Swagger에서 보여줄 간단한 API 설명
 #description: Swagger에서 보여줄 상세한 API 설명
 @router.get(
-    path="",
+    path="/{member_id}",
     response_model=ApiResponse[MemberOut],
     summary="멤버 단건 조회",
     description="member ID에 해당하는 멤버의 상세 정보를 조회합니다.",
@@ -185,11 +185,29 @@ async def restore_member(
         data=MemberOut.model_validate(restored)
     )
 
-@router.post("/login")
+@router.post(
+    path="/login",
+    response_model=TokenOut,
+    summary="로그인",
+    description="이메일과 비밀번호를 통해 로그인 합니다."
+)
 async def login_member(
         service: MemberServiceDep,
         form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ):
     tokens = await service.login(form_data.username, form_data.password)
 
+    return TokenOut(**tokens)
+
+@router.post(
+    path="/reissue",
+    response_model=TokenOut,
+    summary="refresh 토큰 재발급",
+    description="refresh 토큰으로 새로운 access 토큰과 refresh 토큰을 재발급합니다."
+)
+async def reissue_refresh_token(
+        service: MemberServiceDep,
+        data: RefreshTokenIn,
+):
+    tokens = await service.reissue(data.refresh_token)
     return TokenOut(**tokens)

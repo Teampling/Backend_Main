@@ -38,7 +38,7 @@ async def get_current_member(
         if payload.get("type") != "access":
             raise AppError.unauthorized("엑세스 토큰이 아닙니다.")
 
-        member = await service.get(UUID(member_id))
+        member = await service.get(UUID(member_id), include_deleted=True)
 
         if member is None:
             raise AppError.unauthorized("존재하지 않는 사용자입니다.")
