@@ -285,3 +285,36 @@ class MemberService:
         except Exception as e:
             raise AppError.unauthorized(f"토큰 재발급 과정에서 오류가 발생했습니다.: {str(e)}")
 
+    #비밀번호 재설정 함수
+    #토큰 검증 + 사용자 확인 + 비밀번호 변경 전부 처리
+    #전체 흐름: 토큰 검증 -> 사용자 확인 -> 비밀번호 해싱 -> DB 업데이트
+    async def reset(self, token: str, new_password: str) -> None:
+        payload = decode_token(token) #JWT 복호화해서 payload 꺼냄
+        #payload안에는 sub(사용자 ID), type(토큰 용도), exp(만료시간) 정보가 있음
+
+        #비밀번호 재설정용 토큰인지 검증
+        #다른 토큰 들어오는 것 방지(access token, refresh token 등)
+        if payload.get("type") != "password_reset":
+            raise AppError.unauthorized("올바르지 않은 토큰입니다.")
+
+        #사용자 ID 추출
+        #JWT의 subject에서 사용자 식별값 가져옴
+        #없으면 잘못된 토큰이므로 예외처리함.
+        member_id = payload.get("sub")
+        if not member_id:
+            raise AppError.unauthorized("토큰 정보가 올바르지 않습니다.")
+
+        #실제 DB에 존재하는 사용자인지 확인
+        #토큰이 유효해도 계정이 삭제되었을 수 있어서 한 번 더 검증
+        member = await self.repository.get_by_id(UUID(member_id))
+
+        if not member:
+            raise AppError.not_found("사용자를 찾을 수 없습니다.")
+
+        #새 비밀번호도 해싱하기
+        hashed = password_hash(new_password)
+
+        #실제 DB 반영
+        #member 객체의 password를 변경
+        #flush, refresh 포함해서 저장
+        await self.repository.update_password(member, hashed)

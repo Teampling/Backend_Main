@@ -143,5 +143,11 @@ class MemberRepository:
         await self.session.flush()
         #refresh 대상 없음, None이기에 return도 X
 
+    async def update_password(self, member: Member, hashed_password: str) -> Member:
+        member.password = hashed_password
+        await self.session.flush()
+        await self.session.refresh(member)
+        return member
+
 
 

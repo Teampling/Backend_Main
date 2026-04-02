@@ -121,7 +121,7 @@ class TokenOut(SQLModel):
     token_type: str = Field(default="Bearer", description="토큰 타입")
 
     model_config = ConfigDict(
-        json_schema_extra={
+        json_schema_extra= {
             "example": {
                 "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                 "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -141,3 +141,12 @@ class RefreshTokenIn(SQLModel):
             }
         }
     }
+
+#비밀번호 재설정 요청
+class PasswordRequestIn(SQLModel):
+    email: EmailStr = Field(description="비밀번호 재설정 요청 이메일")
+
+#비밀번호 재설정 토큰
+class PasswordTokenIn(SQLModel):
+    token: str = Field(description="비밀번호 재설정 토큰")
+    new_password: str = Field(description="새 비밀번호")
