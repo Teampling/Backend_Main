@@ -142,6 +142,32 @@ class RefreshTokenIn(SQLModel):
         }
     }
 
+#회원가입 이메일 인증 요청 (이메일 입력)
+class SignupVerifyRequestIn(SQLModel):
+    email: EmailStr = Field(description="인증할 이메일")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "newuser@example.com"
+            }
+        }
+    }
+
+#회원가입 이메일 인증 확인 (이메일 + 인증코드)
+class SignupVerifyConfirmIn(SQLModel):
+    email: EmailStr = Field(description="이메일")
+    code: str = Field(..., min_length=6, max_length=6, description="6자리 인증 코드")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "newuser@example.com",
+                "code": "123456"
+            }
+        }
+    }
+
 #비밀번호 재설정 요청 (이메일 입력)
 class PasswordResetRequestIn(SQLModel):
     email: EmailStr = Field(description="비밀번호 재설정 요청 이메일")

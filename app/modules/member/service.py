@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import AppError
 from app.core.security import password_hash, verify_password, create_access_token, create_refresh_token, decode_token
 from app.shared.utils.email import generate_verification_code, send_verification_email, verify_code
+from app.core.redis import redis_client
 from app.modules.member.models import Member
 from app.modules.member.repository import MemberRepository
 from app.modules.member.schemas import MemberCreateIn, MemberUpdateIn
@@ -84,8 +85,37 @@ class MemberService:
             "total": total
         }
 
+    # [1단계] 회원가입용 인증 코드 발송
+    async def request_signup_verification(self, email: str) -> None:
+        # 이미 가입된 이메일인지 먼저 체크
+        existing = await self.repository.get_by_email(email)
+        if existing:
+            raise AppError.bad_request(f"[{email}]은(는) 이미 존재하는 회원 이메일입니다.")
+
+        code = generate_verification_code()
+        await send_verification_email(
+            email=email,
+            code=code,
+            purpose="signup",
+            custom_message="팀플링 회원가입을 위한 인증 코드입니다."
+        )
+
+    # [2단계] 인증 코드 검증 및 '인증 완료' 증표 남기기
+    async def confirm_signup_verification(self, email: str, code: str) -> None:
+        is_valid = await verify_code(email, code, purpose="signup")
+        if not is_valid:
+            raise AppError.bad_request("인증 코드가 틀렸거나 만료되었습니다.")
+
+        # 인증 완료 증표를 Redis에 10분(600초)간 저장 (key: verify:signup_passed:{email})
+        await redis_client.setex(f"verify:signup_passed:{email}", 600, "true")
+
     #멤버 생성 서비스(save)
     async def create(self, data: MemberCreateIn) -> Member:
+        # [3단계] 최종 회원가입 시 증표 확인
+        passed = await redis_client.get(f"verify:signup_passed:{data.email}")
+        if not passed:
+            raise AppError.bad_request("이메일 인증이 완료되지 않았거나 인증 시간이 만료되었습니다.")
+
         existing = await self.repository.get_by_email(data.email) #회원이 이미 있는 경우 가입 불가능하게 하기 위한 작업
         if existing:
             raise AppError.bad_request(f"[{data.email}]은(는) 이미 존재하는 회원 이메일입니다.")
@@ -115,6 +145,9 @@ class MemberService:
             await self.session.commit()
             #서비스 단계에서 DB 데이터 변화가 있을 수 있기 때문에 또 refresh함.
             await self.session.refresh(saved)
+
+            # 가입 성공 후 Redis 증표 삭제
+            await redis_client.delete(f"verify:signup_passed:{data.email}")
             return saved
         #무결성 제약 조건 에러
         #위의 AppError.bad_request 에러 부분과 다른 점은

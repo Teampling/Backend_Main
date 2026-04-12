@@ -8,7 +8,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.modules.member.dependencies import CurrentMemberDep, MemberServiceDep
 from app.modules.member.schemas import (
     MemberCreateIn, MemberOut, MemberUpdateIn, TokenOut, RefreshTokenIn,
-    PasswordResetRequestIn, PasswordResetConfirmIn
+    PasswordResetRequestIn, PasswordResetConfirmIn,
+    SignupVerifyRequestIn, SignupVerifyConfirmIn
 )
 from app.shared.schemas import ApiResponse, PageOut
 
@@ -214,6 +215,45 @@ async def reissue_refresh_token(
 ):
     tokens = await service.reissue(data.refresh_token)
     return TokenOut(**tokens)
+
+# 회원가입 이메일 인증 요청 (인증 코드 발송)
+@router.post(
+    path="/signup/verify/request",
+    response_model=ApiResponse[None],
+    summary="회원가입 이메일 인증 요청",
+    description="회원가입 전 이메일 중복 확인 및 인증 코드를 발송합니다."
+)
+async def request_signup_verification(
+        service: MemberServiceDep,
+        data: SignupVerifyRequestIn,
+):
+    await service.request_signup_verification(data.email)
+    return ApiResponse.success(
+        code="SIGNUP_VERIFY_CODE_SENT",
+        message="인증 코드가 이메일로 발송되었습니다.",
+        data=None
+    )
+
+# 회원가입 이메일 인증 확인 (코드 검증)
+@router.post(
+    path="/signup/verify/confirm",
+    response_model=ApiResponse[None],
+    summary="회원가입 이메일 인증 확인",
+    description="인증 코드를 검증하고 회원가입 가능한 상태로 표시합니다."
+)
+async def confirm_signup_verification(
+        service: MemberServiceDep,
+        data: SignupVerifyConfirmIn,
+):
+    await service.confirm_signup_verification(
+        email=data.email,
+        code=data.code
+    )
+    return ApiResponse.success(
+        code="SIGNUP_VERIFY_SUCCESS",
+        message="이메일 인증이 완료되었습니다.",
+        data=None
+    )
 
 # 비밀번호 재설정 요청 (인증 코드 이메일 발송)
 @router.post(
