@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
 from app.core.security import password_hash, verify_password, create_access_token, create_refresh_token, decode_token
+from app.shared.utils.email import generate_verification_code, send_verification_email, verify_code
 from app.modules.member.models import Member
 from app.modules.member.repository import MemberRepository
 from app.modules.member.schemas import MemberCreateIn, MemberUpdateIn
@@ -285,42 +286,39 @@ class MemberService:
         except Exception as e:
             raise AppError.unauthorized(f"토큰 재발급 과정에서 오류가 발생했습니다.: {str(e)}")
 
-    #비밀번호 재설정 함수
-    #토큰 검증 + 사용자 확인 + 비밀번호 변경 전부 처리
-    #전체 흐름: 토큰 검증 -> 사용자 확인 -> 비밀번호 해싱 -> DB 업데이트
-    async def reset_password(self, token: str, new_password: str) -> None:
-        payload = decode_token(token) #JWT 복호화해서 payload 꺼냄
-        #payload안에는 sub(사용자 ID), type(토큰 용도), exp(만료시간) 정보가 있음
+    # [1단계] 비밀번호 재설정 요청: 인증 코드 발송
+    async def request_password_reset(self, email: str) -> None:
+        member = await self.repository.get_by_email(email)
+        # 보안상 이메일이 없어도 오류를 내지 않고 발송 완료 메시지만 띄우는 것이 일반적입니다.
+        if not member:
+            return
 
-        #비밀번호 재설정용 토큰인지 검증
-        #다른 토큰 들어오는 것 방지(access token, refresh token 등)
-        if payload.get("type") != "password_reset":
-            raise AppError.unauthorized("올바르지 않은 토큰입니다.")
+        code = generate_verification_code()
+        await send_verification_email(
+            email=email,
+            code=code,
+            purpose="reset_password",
+            custom_message="비밀번호 재설정 인증 코드입니다."
+        )
 
-        #사용자 ID 추출
-        #JWT의 subject에서 사용자 식별값 가져옴
-        #없으면 잘못된 토큰이므로 예외처리함.
-        member_id = payload.get("sub")
-        if not member_id:
-            raise AppError.unauthorized("토큰 정보가 올바르지 않습니다.")
+    # [2단계] 코드 검증 및 실제 비밀번호 변경
+    async def confirm_password_reset(self, email: str, code: str, new_password: str) -> None:
+        # 1. 코드 검증 (Redis 확인 및 성공 시 자동 삭제)
+        is_valid = await verify_code(email, code, purpose="reset_password")
+        if not is_valid:
+            raise AppError.bad_request("인증 코드가 틀렸거나 만료되었습니다.")
 
-        #실제 DB에 존재하는 사용자인지 확인
-        #토큰이 유효해도 계정이 삭제되었을 수 있어서 한 번 더 검증
-        member = await self.repository.get_by_id(UUID(member_id))
-
+        # 2. 사용자 확인
+        member = await self.repository.get_by_email(email)
         if not member:
             raise AppError.not_found("사용자를 찾을 수 없습니다.")
 
-        #새 비밀번호도 해싱하기
-        hashed = password_hash(new_password)
-        member.hashed_password = hashed
+        # 3. 비밀번호 업데이트 (해싱 후 저장)
+        member.hashed_password = password_hash(new_password)
 
-        #실제 DB 반영
-        #member 객체의 password를 변경
-        #flush, refresh 포함해서 저장
         try:
             await self.repository.save(member)
             await self.session.commit()
-        except IntegrityError:
+        except Exception:
             await self.session.rollback()
-            raise AppError.bad_request("비밀번호 변경 중 오류가 발생했습니다.")
+            raise AppError.internal_server_error("비밀번호 변경 중 오류가 발생했습니다.")

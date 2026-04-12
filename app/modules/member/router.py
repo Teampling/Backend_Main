@@ -6,8 +6,10 @@ from fastapi import APIRouter, Path, Query, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.modules.member.dependencies import CurrentMemberDep, MemberServiceDep
-from app.modules.member.schemas import MemberCreateIn, MemberOut, MemberUpdateIn, TokenOut, RefreshTokenIn, \
-    PasswordRequestIn, PasswordTokenIn
+from app.modules.member.schemas import (
+    MemberCreateIn, MemberOut, MemberUpdateIn, TokenOut, RefreshTokenIn,
+    PasswordResetRequestIn, PasswordResetConfirmIn
+)
 from app.shared.schemas import ApiResponse, PageOut
 
 
@@ -213,51 +215,42 @@ async def reissue_refresh_token(
     tokens = await service.reissue(data.refresh_token)
     return TokenOut(**tokens)
 
-#비밀번호 재설정 요청(이메일 받는 용)
-#1. 클라이언트에 요청
+# 비밀번호 재설정 요청 (인증 코드 이메일 발송)
 @router.post(
     path="/password/reset/request",
     response_model=ApiResponse[None],
     summary="비밀번호 재설정 요청",
+    description="이메일로 6자리 인증 코드를 발송합니다."
 )
-#2. DTO 검증
-#이메일 형식 검증, 잘못된 형식이면 에러
 async def request_password_reset(
         service: MemberServiceDep,
-        data: PasswordRequestIn,
+        data: PasswordResetRequestIn,
 ):
-    #3. 서비스 호출
-    #이메일로 사용자 조회 -> 존재하면 JWT reset token 생성, 없으면 OK 반환
-    token = await service.reset_password(data.email)
-
+    await service.request_password_reset(data.email)
     return ApiResponse.success(
-        code="PASSWORD_RESET_REQUESTED",
-        message="비밀번호 재설정 요청 성공",
-        data={ "token": token }
+        code="PASSWORD_RESET_CODE_SENT",
+        message="인증 코드가 이메일로 발송되었습니다.",
+        data=None
     )
 
-#비밀번호 재설정 확정(token + new_password)
-#1. 클라이언트 요청
+# 비밀번호 재설정 확정 (코드 검증 + 새 비밀번호 설정)
 @router.post(
-    path="/password/reset",
+    path="/password/reset/confirm",
     response_model=ApiResponse[None],
-    summary="비밀번호 재설정 완료",
+    summary="비밀번호 재설정 확정",
+    description="이메일과 인증 코드, 새 비밀번호를 받아 비밀번호를 변경합니다."
 )
-#2. DTO 검증
-#token 문자열, new_password 존재 확인
-async def reset_password(
+async def confirm_password_reset(
         service: MemberServiceDep,
-        data: PasswordTokenIn,
+        data: PasswordResetConfirmIn,
 ):
-    #3. service 호출
-    #내부에서 token decode, type 검증(password_reset), 사용자 조회, 비밀번호 해싱, repository 호출
-    await service.reset_password(
-        token=data.token,
+    await service.confirm_password_reset(
+        email=data.email,
+        code=data.code,
         new_password=data.new_password
     )
-
     return ApiResponse.success(
         code="PASSWORD_RESET_SUCCESS",
-        message="비밀번호 재설정 성공",
+        message="비밀번호가 성공적으로 변경되었습니다.",
         data=None
     )

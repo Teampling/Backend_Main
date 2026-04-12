@@ -142,11 +142,30 @@ class RefreshTokenIn(SQLModel):
         }
     }
 
-#비밀번호 재설정 요청
-class PasswordRequestIn(SQLModel):
+#비밀번호 재설정 요청 (이메일 입력)
+class PasswordResetRequestIn(SQLModel):
     email: EmailStr = Field(description="비밀번호 재설정 요청 이메일")
 
-#비밀번호 재설정 토큰
-class PasswordTokenIn(SQLModel):
-    token: str = Field(description="비밀번호 재설정 토큰")
-    new_password: str = Field(description="새 비밀번호")
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "test@example.com"
+            }
+        }
+    }
+
+#비밀번호 재설정 확인 (이메일 + 인증코드 + 새 비밀번호)
+class PasswordResetConfirmIn(SQLModel):
+    email: EmailStr = Field(description="이메일")
+    code: str = Field(..., min_length=6, max_length=6, description="6자리 인증 코드")
+    new_password: str = Field(..., min_length=8, description="새 비밀번호")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "test@example.com",
+                "code": "123456",
+                "new_password": "newpassword123!"
+            }
+        }
+    }
