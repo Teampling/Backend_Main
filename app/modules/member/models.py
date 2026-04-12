@@ -2,9 +2,11 @@ from datetime import date
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from sqlalchemy import Enum, Column
 from sqlmodel import Field, Relationship
 
 from app.shared.models.base import BaseModel
+from app.shared.enums import MemberRole
 
 if TYPE_CHECKING:
     from app.modules.resource.models import Resource
@@ -22,6 +24,18 @@ class Member(BaseModel, table=True):
         primary_key=True,
         nullable=False,
         description="회원 고유키"
+    )
+
+    role: MemberRole = Field(
+        default=MemberRole.USER,
+        sa_column=Column(
+            Enum(
+                MemberRole,
+                name="memberrole",
+                values_callable=lambda x: [e.value for e in x],
+            ),
+            nullable=False,
+        )
     )
 
     provider: str = Field(

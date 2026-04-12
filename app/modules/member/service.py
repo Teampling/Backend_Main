@@ -12,7 +12,7 @@ from app.core.redis import redis_client
 from app.modules.member.models import Member
 from app.modules.member.repository import MemberRepository
 from app.modules.member.schemas import MemberCreateIn, MemberUpdateIn
-from app.shared.enums import ProviderType
+from app.shared.enums import ProviderType, MemberRole
 
 
 #pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto") #비밀번호 해쉬화
@@ -158,9 +158,9 @@ class MemberService:
 
     #멤버 수정 서비스(save)
     #여기서의 member_id는 수정을 원하는 회원 id인데 수정할 회원 id가 없으면 안되므로 이렇게 구현.
-    async def update(self, target_member_id: UUID, actor_member_id: UUID, data: MemberUpdateIn) -> Member:
-        if actor_member_id != target_member_id:
-            raise AppError.forbidden("본인 정보만 수정할 수 있습니다.")
+    async def update(self, target_member_id: UUID, actor: Member, data: MemberUpdateIn) -> Member:
+        if actor.role != MemberRole.ADMIN and actor.id != target_member_id:
+            raise AppError.forbidden("본인 정보만 수정할 수 있거나 관리자 권한이 필요합니다.")
 
         member = await self.repository.get_by_id(target_member_id, include_deleted=False)
         if not member:
@@ -215,11 +215,31 @@ class MemberService:
             await self.session.rollback() #아까 했던 DB 작업 전부 취소
             raise AppError.bad_request(f"[{data.email}]은(는) 이미 존재하는 회원 이메일입니다.")
 
+    async def update_role(self, member_id: UUID, role: MemberRole) -> Member:
+        """
+        관리자가 특정 회원의 권한을 수정합니다.
+        """
+        member = await self.repository.get_by_id(member_id, include_deleted=False)
+        if not member:
+            raise AppError.not_found(f"Member[{member_id}]")
+
+        member.role = role
+
+        try:
+            updated = await self.repository.save(member)
+            await self.session.commit()
+            await self.session.refresh(updated)
+            return updated
+        except Exception:
+            await self.session.rollback()
+            raise
+
     # 멤버 삭제 서비스(soft_delete, hard_delete)
     #member를 삭제하는데 hard=True면 진짜 삭제, 아니면 soft delete
-    async def delete(self, target_member_id: UUID, actor_member_id: UUID, *, hard: bool = False) -> None:
-        if actor_member_id != target_member_id:
-            raise AppError.forbidden("본인 정보만 삭제할 수 있습니다.")
+    async def delete(self, target_member_id: UUID, actor: Member, *, hard: bool = False) -> None:
+        # 관리자가 아니면서 본인이 아닌 경우에만 차단
+        if actor.role != MemberRole.ADMIN and actor.id != target_member_id:
+            raise AppError.forbidden("본인 정보만 삭제할 수 있거나 관리자 권한이 필요합니다.")
 
         #삭제된 것이든 아니든 다 가져옴
         #왜냐하면, hard delete 하려면 이미 삭제된 것도 찾아야 하기 때문에

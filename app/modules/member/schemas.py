@@ -5,6 +5,8 @@ from uuid import UUID
 from pydantic import HttpUrl, ConfigDict, EmailStr
 from sqlmodel import SQLModel, Field
 
+from app.shared.enums import MemberRole
+
 
 #In: 서버 API로 들어오는 데이터(요청)
 #Out: 서버 API에서 나가는 데이터(응답)
@@ -84,6 +86,7 @@ class MemberUpdateIn(SQLModel):
 class MemberOut(SQLModel):
     id: UUID = Field(description="회원 ID")
     email: EmailStr = Field(description="회원 이메일")
+    role: MemberRole = Field(description="회원 권한")
     name: str = Field(description="이름")
     birth: date = Field(description="생년월일")
     gender: bool | None = Field(default=None, description="성별")
@@ -192,6 +195,17 @@ class PasswordResetConfirmIn(SQLModel):
                 "email": "test@example.com",
                 "code": "123456",
                 "new_password": "newpassword123!"
+            }
+        }
+    }
+
+class MemberRoleUpdateIn(SQLModel):
+    role: MemberRole = Field(description="변경할 회원 권한")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "role": "admin"
             }
         }
     }

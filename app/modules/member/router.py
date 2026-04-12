@@ -5,11 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Path, Query, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.modules.member.dependencies import CurrentMemberDep, MemberServiceDep
+from app.modules.member.dependencies import CurrentMemberDep, MemberServiceDep, AdminMemberDep
 from app.modules.member.schemas import (
     MemberCreateIn, MemberOut, MemberUpdateIn, TokenOut, RefreshTokenIn,
     PasswordResetRequestIn, PasswordResetConfirmIn,
-    SignupVerifyRequestIn, SignupVerifyConfirmIn
+    SignupVerifyRequestIn, SignupVerifyConfirmIn, MemberRoleUpdateIn
 )
 from app.shared.schemas import ApiResponse, PageOut
 
@@ -28,6 +28,7 @@ router = APIRouter(prefix="/members", tags=["Member"])
 )
 async def list_members(
         service: MemberServiceDep,
+        admin: AdminMemberDep,
         keyword: Annotated[str | None, Query(description="검색 키워드", example="수진")] = None,
         #ge: 이상, le: 이하
         page: Annotated[int,Query(ge=1, description="페이지 번호")] = 1,
@@ -84,7 +85,7 @@ async def get_member(
     )
 
 @router.post(
-    path="",
+    path="/signup",
     response_model=ApiResponse[MemberOut],
     status_code=status.HTTP_201_CREATED,
     summary="회원 생성",
@@ -122,7 +123,7 @@ async def update_member(
     #DB 수정 → 수정된 객체 받음
     updated = await service.update(
         target_member_id=member_id,
-        actor_member_id=current_member.id,
+        actor=current_member,
         data=data
     )
     return ApiResponse.success(
@@ -134,6 +135,26 @@ async def update_member(
         data=MemberOut.model_validate(updated),
         #응답용 데이터로 변환 (필터링 + 검증)
     )
+
+@router.patch(
+    path="/{member_id}/role",
+    response_model=ApiResponse[MemberOut],
+    summary="회원 권한 수정",
+    description="관리자가 특정 회원의 권한을 수정합니다."
+)
+async def update_member_role(
+        service: MemberServiceDep,
+        admin: AdminMemberDep,
+        member_id: Annotated[UUID, Path(description="권한을 수정할 member ID")],
+        data: MemberRoleUpdateIn,
+):
+    updated = await service.update_role(member_id=member_id, role=data.role)
+    return ApiResponse.success(
+        code="MEMBER_ROLE_UPDATED",
+        message="회원 권한 수정 성공",
+        data=MemberOut.model_validate(updated)
+    )
+
 #model_dump()와 model_validated() 차이점
 #model_dump(): Pydantic → dict(Json 형태)
 #언제 할까?: DB에 넣을 때, PATCH 할 때 (exclude_unset=True), JSON 응답 만들 때
@@ -156,7 +177,7 @@ async def delete_member(
     #router는 요청 받기만 하고, Service가 진짜 일함
     await service.delete(
         target_member_id=member_id,
-        actor_member_id=current_member.id,
+        actor=current_member,
         hard=hard
     )
     return ApiResponse.success(

@@ -10,6 +10,7 @@ from app.core.security import decode_token
 from app.modules.member.models import Member
 from app.modules.member.repository import MemberRepository
 from app.modules.member.service import MemberService
+from app.shared.enums import MemberRole
 
 
 #전체 흐름
@@ -54,3 +55,15 @@ async def get_current_member(
         raise AppError.unauthorized(f"인증 과정에서 오류가 발생했습니다.: {str(e)}")
 
 CurrentMemberDep = Annotated[Member, Depends(get_current_member)]
+
+async def get_current_admin(
+        current_member: CurrentMemberDep,
+) -> Member:
+    """
+    현재 로그인한 사용자가 관리자인지 확인하는 의존성 주입 함수
+    """
+    if current_member.role != MemberRole.ADMIN:
+        raise AppError.forbidden("관리자 권한이 필요합니다.")
+    return current_member
+
+AdminMemberDep = Annotated[Member, Depends(get_current_admin)]
