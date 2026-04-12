@@ -288,7 +288,7 @@ class MemberService:
     #비밀번호 재설정 함수
     #토큰 검증 + 사용자 확인 + 비밀번호 변경 전부 처리
     #전체 흐름: 토큰 검증 -> 사용자 확인 -> 비밀번호 해싱 -> DB 업데이트
-    async def reset(self, token: str, new_password: str) -> None:
+    async def reset_password(self, token: str, new_password: str) -> None:
         payload = decode_token(token) #JWT 복호화해서 payload 꺼냄
         #payload안에는 sub(사용자 ID), type(토큰 용도), exp(만료시간) 정보가 있음
 
@@ -313,8 +313,14 @@ class MemberService:
 
         #새 비밀번호도 해싱하기
         hashed = password_hash(new_password)
+        member.hashed_password = hashed
 
         #실제 DB 반영
         #member 객체의 password를 변경
         #flush, refresh 포함해서 저장
-        await self.repository.update_password(member, hashed)
+        try:
+            await self.repository.save(member)
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            raise AppError.bad_request("비밀번호 변경 중 오류가 발생했습니다.")

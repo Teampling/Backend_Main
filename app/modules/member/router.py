@@ -228,7 +228,7 @@ async def request_password_reset(
 ):
     #3. 서비스 호출
     #이메일로 사용자 조회 -> 존재하면 JWT reset token 생성, 없으면 OK 반환
-    token = await service.reset(data.email)
+    token = await service.reset_password(data.email)
 
     return ApiResponse.success(
         code="PASSWORD_RESET_REQUESTED",
@@ -251,7 +251,7 @@ async def reset_password(
 ):
     #3. service 호출
     #내부에서 token decode, type 검증(password_reset), 사용자 조회, 비밀번호 해싱, repository 호출
-    await service.reset(
+    await service.reset_password(
         token=data.token,
         new_password=data.new_password
     )
