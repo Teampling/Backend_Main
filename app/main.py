@@ -1,7 +1,8 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ConfigDict
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, FileResponse
 
 from app.core.config import settings
 from app.core.exception_handler import register_exception_handlers
@@ -42,6 +43,17 @@ def create_app() -> FastAPI:
     # Router 등록
     app.include_router(skill_router)
     app.include_router(member_router)
+
+    # Static Files
+    app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+    @app.get("/")
+    async def read_index():
+        return FileResponse("app/static/index.html")
+
+    @app.get("/{page}.html")
+    async def read_html(page: str):
+        return FileResponse(f"app/static/{page}.html")
 
     # Middleware
     app.add_middleware(RequestIdMiddleware)

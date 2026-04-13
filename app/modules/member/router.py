@@ -58,6 +58,21 @@ async def list_members(
         ),
     )
 
+@router.get(
+    path="/me",
+    response_model=ApiResponse[MemberOut],
+    summary="내 정보 조회",
+    description="현재 로그인한 회원의 정보를 조회합니다."
+)
+async def get_my_info(
+        current_member: CurrentMemberDep,
+):
+    return ApiResponse.success(
+        code="MEMBER_FETCHED",
+        message="내 정보 조회 성공",
+        data=MemberOut.model_validate(current_member)
+    )
+
 #path: 경로, response_model: Swagger에서 보여줄 응답 예시 형태
 #summary: Swagger에서 보여줄 간단한 API 설명
 #description: Swagger에서 보여줄 상세한 API 설명

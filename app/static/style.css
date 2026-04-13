@@ -1,0 +1,176 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+}
+
+body {
+    background-color: #f8f9fa;
+    color: #333;
+    line-height: 1.6;
+}
+
+header {
+    background-color: #fff;
+    border-bottom: 1px solid #dee2e6;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #6f42c1;
+    text-decoration: none;
+}
+
+.nav-links {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.nav-links a, .nav-links button {
+    text-decoration: none;
+    color: #495057;
+    font-weight: 500;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    font-size: 1rem;
+}
+
+.nav-links a.login-btn {
+    background-color: #6f42c1;
+    color: #fff !important;
+    padding: 0.5rem 1.2rem;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+    display: inline-block;
+}
+
+.nav-links a.login-btn:hover {
+    background-color: #59359a;
+}
+
+.user-profile-info {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    font-weight: 600;
+}
+
+.header-profile-img {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: #eee;
+    border: 1px solid #dee2e6;
+}
+
+.user-nickname {
+    color: #333;
+}
+
+main {
+    max-width: 1200px;
+    margin: 3rem auto;
+    padding: 0 1rem;
+    min-height: calc(100vh - 160px);
+}
+
+.auth-container {
+    max-width: 400px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+.auth-container h2 {
+    margin-bottom: 2rem;
+    text-align: center;
+    font-weight: 700;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #6f42c1;
+    box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.1);
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #6f42c1;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 1rem;
+}
+
+.btn-primary:hover {
+    background-color: #59359a;
+}
+
+.auth-links {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+}
+
+.auth-links a {
+    color: #6c757d;
+    text-decoration: none;
+}
+
+.auth-links a:hover {
+    text-decoration: underline;
+    color: #6f42c1;
+}
+
+.welcome-msg {
+    text-align: center;
+    margin-top: 5rem;
+}
+
+.welcome-msg h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.hidden {
+    display: none;
+}
