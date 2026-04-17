@@ -32,24 +32,24 @@ class MemberCreateIn(SQLModel):
     nickname: str | None = Field(default=None, description="닉네임")
     organization: str | None = Field(default=None, description="소속")
     dept: str | None = Field(default=None, description="부서")
-    profile_url: HttpUrl | None = Field(default=None, description="프로필 이미지 URL")
     detail: str | None = Field(default=None, description="상세 소개")
 
     model_config = {
         "json_schema_extra": {
-            "example": {
-                "email": "test@naver.com",
-                "password": "test1234!",
-                "name": "송시월",
-                "birth": "2001-05-21",
-                "gender": True,
-                "phone_num": "01012345678",
-                "nickname": "쏴리쏭",
-                "organization": "한성대학교",
-                "dept": "컴퓨터공학과",
-                "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요!"
-            }
+            "examples": [
+                {
+                    "email": "test@naver.com",
+                    "password": "test1234!",
+                    "name": "송시월",
+                    "birth": "2001-05-21",
+                    "gender": True,
+                    "phone_num": "01012345678",
+                    "nickname": "쏴리쏭",
+                    "organization": "한성대학교",
+                    "dept": "컴퓨터공학과",
+                    "detail": "안녕하세요!"
+                }
+            ]
         }
     }
 
@@ -67,18 +67,20 @@ class MemberUpdateIn(SQLModel):
 
     model_config = {
         "json_schema_extra": {
-            "example": {
-                "password": "test1234!",
-                "name": "송시월",
-                "birth": "2001-05-21",
-                "gender": True,
-                "phone_num": "01012345678",
-                "nickname": "쏴리쏭",
-                "organization": "한성대학교",
-                "dept": "컴퓨터공학과",
-                "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요!"
-            }
+            "examples": [
+                {
+                    "password": "test1234!",
+                    "name": "송시월",
+                    "birth": "2001-05-21",
+                    "gender": True,
+                    "phone_num": "01012345678",
+                    "nickname": "쏴리쏭",
+                    "organization": "한성대학교",
+                    "dept": "컴퓨터공학과",
+                    "profile_url": "https://example.com/profile.jpg",
+                    "detail": "안녕하세요!"
+                }
+            ]
         }
     }
 

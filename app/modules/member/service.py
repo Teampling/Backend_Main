@@ -1,12 +1,15 @@
+import logging
 from base64 import decode
 from typing import Any
 from uuid import UUID
 
+from fastapi import UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
 from app.core.security import password_hash, verify_password, create_access_token, create_refresh_token, decode_token
+from app.shared.storage.oci_object_storage import OCIObjectStorageClient
 from app.shared.utils.email import generate_verification_code, send_verification_email, verify_code
 from app.core.redis import redis_client
 from app.modules.member.models import Member
@@ -14,13 +17,20 @@ from app.modules.member.repository import MemberRepository
 from app.modules.member.schemas import MemberCreateIn, MemberUpdateIn
 from app.shared.enums import ProviderType, MemberRole
 
+logger = logging.getLogger(__name__)
 
 #pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto") #비밀번호 해쉬화
 
 class MemberService:
-    def __init__(self, session: AsyncSession, repository: MemberRepository):
+    def __init__(
+            self,
+            session: AsyncSession,
+            repository: MemberRepository,
+            storage: OCIObjectStorageClient,
+    ):
         self.session = session
         self.repository = repository
+        self.storage = storage
 
     #get_by_id의 서비스
     async def get(self, member_id: UUID, *, include_deleted: bool = False) -> Member:
@@ -110,7 +120,7 @@ class MemberService:
         await redis_client.setex(f"verify:signup_passed:{email}", 600, "true")
 
     #멤버 생성 서비스(save)
-    async def create(self, data: MemberCreateIn) -> Member:
+    async def create(self, data: MemberCreateIn, profile_file: UploadFile | None = None) -> Member:
         # [3단계] 최종 회원가입 시 증표 확인
         passed = await redis_client.get(f"verify:signup_passed:{data.email}")
         if not passed:
@@ -123,9 +133,8 @@ class MemberService:
         #dto 타입으로 들어온 데이터를 DB에 넣기 위해 SqlModel에 쓰는 데이터 타입으로 변환
         #member = Member(**data.model_dump(mode="json")) #이대로 저장하면 데이터 안에 있는 password가 그대로 들어가서 보안 문제 생김
         member = Member(
-            **data.model_dump(exclude={"password", "profile_url"}),
+            **data.model_dump(exclude={"password"}),
             #enum 타입으로 shared.enums.py 안에 적어놓음. 오타 방지를 위해서 & 수정도 쉽게 하기 위해서
-            profile_url=str(data.profile_url) if data.profile_url is not None else None,
             provider=ProviderType.LOCAL,
             provider_id=None, #소셜 로그인이 아니어서
             hashed_password=password_hash(data.password)
@@ -138,6 +147,12 @@ class MemberService:
         #}
         #이런 형태의 dictionary를 SqlModel에서 쓰기 위해서 아래처럼 바꿔줌
         #Skill(name="python", level=3)
+
+        profile_object_name = None
+        if profile_file is not None:
+            profile_object_name = await self.storage.upload_object(file=profile_file, object_prefix="member_profile")
+            profile_object_utl = self.storage.build_object_url(profile_object_name)
+            member.profile_url = profile_object_utl
 
         try:
             saved = await self.repository.save(member)
@@ -153,12 +168,17 @@ class MemberService:
         #위의 AppError.bad_request 에러 부분과 다른 점은
         #DB에서 unique를 어기는 데이터를 에러 처리할 때 생기는 상황을 위한 이중 처리
         except IntegrityError:
+            if profile_object_name:
+                try:
+                    await self.storage.delete_object(profile_object_name)
+                except Exception:
+                    logger.error(f"업로드 실패 후 이미지 롤백 삭제 실패: {profile_object_name}",exc_info=True)
             await self.session.rollback() #무결성을 위반한 데이터는 저장하지 않고 롤백.
             raise AppError.bad_request(f"[{data.email}]은(는) 이미 존재하는 회원 이메일입니다.")
 
     #멤버 수정 서비스(save)
     #여기서의 member_id는 수정을 원하는 회원 id인데 수정할 회원 id가 없으면 안되므로 이렇게 구현.
-    async def update(self, target_member_id: UUID, actor: Member, data: MemberUpdateIn) -> Member:
+    async def update(self, target_member_id: UUID, actor: Member, data: MemberUpdateIn, profile_file: UploadFile | None = None) -> Member:
         if actor.role != MemberRole.ADMIN and actor.id != target_member_id:
             raise AppError.forbidden("본인 정보만 수정할 수 있거나 관리자 권한이 필요합니다.")
 
@@ -175,6 +195,14 @@ class MemberService:
         #이 둘은 DB에 넣기 전 특수한 처리를 해줘야 해서 따로 빼서 처리.
         if "profile_url" in patch and patch["profile_url"] is not None:
             patch["profile_url"] = str(patch["profile_url"]) #profile_url 수정값을 문자열로 강제 형변환
+
+        old_profile_url = member.profile_url
+        profile_object_name = None
+
+        if profile_file is not None:
+            profile_object_name = await self.storage.upload_object(file=profile_file, object_prefix="member_profile")
+            profile_object_url = self.storage.build_object_url(profile_object_name)
+            patch["profile_url"] = profile_object_url
 
         if data.password is not None:
             patch["hashed_password"] = password_hash(data.password)
@@ -207,11 +235,23 @@ class MemberService:
             #DB에서 자동으로 바뀌는 값들이 있음: updated_at, default 값, trigger, DB에서 가공된 값
             #즉, refresh 안 하면 Python 객체는 옛날 값일 수 있음
             await self.session.refresh(updated) #DB 기준 최신 상태 다시 가져오기
+
+            if old_profile_url:
+                try:
+                    old_object_name = self.storage.extract_object_name(old_profile_url)
+                    await self.storage.delete_object(old_object_name)
+                except Exception:
+                    logger.error(f"기존 이미지 삭제 실패: {old_profile_url}",exc_info=True)
             return updated
         #이메일 unique인데 중복 넣었을 때, PK 충돌, FK 깨졌을 때 터짐.
         except IntegrityError:
             #flush 했던 것도 다 되돌림
             #DB: 원래 상태로 복구됨
+            if profile_object_name:
+                try:
+                    await self.storage.delete_object(profile_object_name)
+                except Exception:
+                    logger.error(f"업로드 실패 후 이미지 롤백 삭제 실패: {profile_object_name}",exc_info=True)
             await self.session.rollback() #아까 했던 DB 작업 전부 취소
             raise AppError.bad_request(f"[{data.email}]은(는) 이미 존재하는 회원 이메일입니다.")
 
