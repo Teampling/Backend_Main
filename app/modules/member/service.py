@@ -142,11 +142,11 @@ class MemberService:
         #pydantic의 dictionary 타입-> SqlModel 타입으로 변경
         #예시!!!
         #data = {
-        #   "name": "python",
-        #   "level": 3
+        #   "username": "쏴리쏭",
+        #   "organization": "한성대학교"
         #}
         #이런 형태의 dictionary를 SqlModel에서 쓰기 위해서 아래처럼 바꿔줌
-        #Skill(name="python", level=3)
+        #Member(username="쏴리쏭", organization="한성대학교")
 
         profile_object_name = None
         if profile_file is not None:
@@ -192,10 +192,6 @@ class MemberService:
             exclude_unset=True,
         )
 
-        #이 둘은 DB에 넣기 전 특수한 처리를 해줘야 해서 따로 빼서 처리.
-        if "profile_url" in patch and patch["profile_url"] is not None:
-            patch["profile_url"] = str(patch["profile_url"]) #profile_url 수정값을 문자열로 강제 형변환
-
         old_profile_url = member.profile_url
         profile_object_name = None
 
@@ -210,14 +206,14 @@ class MemberService:
         #수정할 값인 patch(dictionary 타입임)의 items()를 사용하여 key와 value를 하나하나 가져옴
         #ex)
         #patch = {
-        #  "name": "sujin",
-        #  "age": 26
+        #  "username": "sujin",
+        #  "organization": "한성대학교"
         #}
-        #for문 첫번째 -> k = "name", v = "sujin"
-        #for문 두번째 -> k = "age", v = 26
+        #for문 첫번째 -> k = "username", v = "sujin"
+        #for문 두번째 -> k = "organization", v = "한성대학교"
         #수정할 대상으로 가져온 member의 값을 하나 하나 수정함
-        #for문 첫번째 -> member의 k(name)컬럼의 값을 v(sujin)로 변경
-        #for문 두번째 -> member의 k(age)컬럼의 값으 v(26)로 변경
+        #for문 첫번째 -> member의 k(username)컬럼의 값을 v(sujin)로 변경
+        #for문 두번째 -> member의 k(organization)컬럼의 값으 v(한성대학교)로 변경
         for k, v in patch.items():
             setattr(member, k, v)
 

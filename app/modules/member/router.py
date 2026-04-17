@@ -30,7 +30,7 @@ router = APIRouter(prefix="/members", tags=["Member"])
 async def list_members(
         service: MemberServiceDep,
         admin: AdminMemberDep,
-        keyword: Annotated[str | None, Query(description="검색 키워드", example="수진")] = None,
+        keyword: Annotated[str | None, Query(description="검색 키워드", example="쏴리쏭")] = None,
         #ge: 이상, le: 이하
         page: Annotated[int,Query(ge=1, description="페이지 번호")] = 1,
         size: Annotated[int, Query(ge=1, le=100, description="페이지 크기")] = 50,
@@ -86,7 +86,7 @@ async def get_my_info(
 #DbSessionDep: DB 접속 정보
 #Path: 경로 변수에게 설명을 추가할 수 있도록 하는 것
 #Query: 쿼리 파라미터 변수에게 설명을 추가할 수 있도록 하는 것
-#쿼리 파라미터: ex) /items?name=apple&page=2라고 한다면 name과 page가 쿼리 파라미터
+#쿼리 파라미터: ex) /items?username=sujin&page=2라고 한다면 username과 page가 쿼리 파라미터
 async def get_member(
         service: MemberServiceDep,
         member_id: Annotated[UUID, Path(..., description="조회할 member의 id")],

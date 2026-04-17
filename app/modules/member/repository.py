@@ -59,13 +59,13 @@ class MemberRepository:
         stmt = select(Member)
 
         if keyword:
-            #Member.name(이름)에 keyword가 포함된 회원만 찾으라는 뜻
+            #Member.username에 keyword가 포함된 회원만 찾으라는 뜻
             #ilike: 대소문자 구분 없이 검색
 
             #f"": 변수 값을 문자열에 넣는 문법
             #ex) keyword = "python" f"{keyword}" => 결과: "python"
             #keyword%: keyword로 시작, %keyword: keyword로 끝, %keyword%: keyword 포함
-            stmt = stmt.where(Member.name.ilike(f"%{keyword}%")) #"keyword" 포함(대소문자 구분X)
+            stmt = stmt.where(Member.username.ilike(f"%{keyword}%")) #"keyword" 포함(대소문자 구분X)
         #삭제된 회원을 숨길지 말지 정하는 코드
         #include_deleted는 기본값이 false인데 not이 붙었으므로 true가 됨.
         #false일 때 조건문이 실행X, true일 때 조건문 실행(파이썬 문법)
@@ -73,12 +73,12 @@ class MemberRepository:
             stmt = stmt.where(Member.is_deleted == False) #삭제 안 된 애들만 가져와
 
         #정렬 & 페이지
-        #order_by, asc: 이름 오름차순으로 정렬
+        #order_by, asc: 사용자 이름 오름차순으로 정렬
         #offset: 앞에서부터 몇 개 건너뜀(스킵)
         #limit: 몇 개 가져올지 제한
         #ex) offset = 0, limit = 10 => 1~10번째 회원
         #ex) offset = 10, limit = 10 => 11~20번째 회원
-        stmt = stmt.order_by(Member.name.asc()).offset(offset).limit(limit)
+        stmt = stmt.order_by(Member.username.asc()).offset(offset).limit(limit)
         #실행!!
         #scalars(): Member 객체만 꺼냄
         #.all(): 리스트로 반환
@@ -97,7 +97,7 @@ class MemberRepository:
 
         #list랑 count는 조건이 완전히 같아야 페이지가 맞아서 조건 부분이 동일.
         if keyword:
-            stmt = stmt.where(Member.name.ilike(f"%{keyword}%"))
+            stmt = stmt.where(Member.username.ilike(f"%{keyword}%"))
 
         if not include_deleted:
             stmt = stmt.where(Member.is_deleted == False)
