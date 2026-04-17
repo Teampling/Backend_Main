@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원가입 - 팀플링</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .signup-container {
+            max-width: 600px !important;
+        }
+        .profile-upload-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .profile-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-color: #e9ecef;
+            background-size: cover;
+            background-position: center;
+            border: 2px dashed #dee2e6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            overflow: hidden;
+            position: relative;
+        }
+        .profile-preview:hover {
+            border-color: #6f42c1;
+        }
+        .profile-preview span {
+            font-size: 0.8rem;
+            color: #6c757d;
+            text-align: center;
+        }
+        #profile-input {
+            display: none;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .full-width {
+            grid-column: span 2;
+        }
+        .email-group {
+            display: flex;
+            gap: 10px;
+        }
+        .email-group input {
+            flex: 1;
+        }
+        .email-group button {
+            width: auto;
+            white-space: nowrap;
+        }
+        #code-area {
+            background: #f8f0ff;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 10px;
+            border: 1px solid #e1d0f5;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">팀플링</a>
+    </header>
+
+    <main>
+        <div class="auth-container signup-container">
+            <h2>회원가입</h2>
+            
+            <form id="signup-form">
+                <!-- 프로필 이미지 업로드 -->
+                <div class="profile-upload-container">
+                    <label for="profile-input" class="profile-preview" id="profile-preview">
+                        <span>프로필 이미지<br>선택</span>
+                    </label>
+                    <input type="file" id="profile-input" accept="image/*">
+                    <input type="hidden" id="profile_url"> <!-- 실제 서버에 전송될 URL -->
+                </div>
+
+                <div class="form-group">
+                    <label for="email">이메일 (필수)</label>
+                    <div class="email-group">
+                        <input type="email" id="email" required placeholder="example@email.com">
+                        <button type="button" id="send-code-btn" class="btn-primary">인증 요청</button>
+                    </div>
+                    
+                    <div id="code-area" class="hidden">
+                        <label for="code" style="font-size: 0.8rem; color: #6f42c1;">인증번호 입력</label>
+                        <div class="email-group">
+                            <input type="text" id="code" maxlength="6" placeholder="000000">
+                            <button type="button" id="verify-code-btn" class="btn-primary">확인</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="password">비밀번호 (필수)</label>
+                        <input type="password" id="password" required minlength="8" placeholder="8자 이상">
+                    </div>
+                    <div class="form-group">
+                        <label for="name">이름 (필수)</label>
+                        <input type="text" id="name" required placeholder="실명 입력">
+                    </div>
+                    <div class="form-group">
+                        <label for="nickname">닉네임</label>
+                        <input type="text" id="nickname" placeholder="별명">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone_num">전화번호 (필수)</label>
+                        <input type="tel" id="phone_num" required placeholder="01012345678">
+                    </div>
+                    <div class="form-group">
+                        <label for="birth">생년월일 (필수)</label>
+                        <input type="date" id="birth" required>
+                    </div>
+                    <div class="form-group">
+                        <label>성별</label>
+                        <div style="display: flex; gap: 1rem; padding-top: 0.5rem;">
+                            <label style="font-weight: normal;"><input type="radio" name="gender" value="true" checked> 남성</label>
+                            <label style="font-weight: normal;"><input type="radio" name="gender" value="false"> 여성</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="organization">소속</label>
+                        <input type="text" id="organization" placeholder="예: 한성대학교">
+                    </div>
+                    <div class="form-group">
+                        <label for="dept">부서/학과</label>
+                        <input type="text" id="dept" placeholder="예: 컴퓨터공학과">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="detail">상세 소개</label>
+                        <textarea id="detail" rows="3" placeholder="자신을 소개해주세요"></textarea>
+                    </div>
+                </div>
+                
+                <button type="submit" id="submit-btn" class="btn-primary" disabled style="background-color: #ccc; cursor: not-allowed; margin-top: 2rem;">가입하기 (이메일 인증 필요)</button>
+            </form>
+
+            <div class="auth-links">
+                <a href="/login.html">이미 계정이 있으신가요? 로그인</a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const sendCodeBtn = document.getElementById('send-code-btn');
+        const verifyCodeBtn = document.getElementById('verify-code-btn');
+        const codeArea = document.getElementById('code-area');
+        const signupForm = document.getElementById('signup-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const profileInput = document.getElementById('profile-input');
+        const profilePreview = document.getElementById('profile-preview');
+        
+        let isEmailVerified = false;
+        let verifiedEmail = '';
+
+        // 이미지 미리보기 처리
+        profileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    profilePreview.style.backgroundImage = `url(${e.target.result})`;
+                    profilePreview.innerHTML = '';
+                    // 실제 구현에서는 여기서 서버에 이미지를 업로드하고 URL을 받아와야 함
+                    // 현재는 임시로 base64 또는 placeholder URL 사용
+                    document.getElementById('profile_url').value = "https://example.com/profile.jpg"; 
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        async function handleResponse(response) {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || data.detail || response.statusText || '오류 발생');
+            }
+            return data;
+        }
+
+        sendCodeBtn.addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            if (!email) return alert('이메일을 입력하세요.');
+
+            sendCodeBtn.disabled = true;
+            sendCodeBtn.innerText = '보내는 중...';
+            sendCodeBtn.style.backgroundColor = '#ccc';
+
+            try {
+                await fetch('/members/signup/verify/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                }).then(handleResponse);
+
+                codeArea.classList.remove('hidden');
+                sendCodeBtn.innerText = '재발송';
+            } catch (err) {
+                alert('실패: ' + err.message);
+                sendCodeBtn.innerText = '인증 요청';
+            } finally {
+                sendCodeBtn.disabled = false;
+                sendCodeBtn.style.backgroundColor = '#6f42c1';
+            }
+        });
+
+        verifyCodeBtn.addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const code = document.getElementById('code').value;
+
+            try {
+                await fetch('/members/signup/verify/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, code })
+                }).then(handleResponse);
+
+                isEmailVerified = true;
+                verifiedEmail = email;
+                
+                document.getElementById('email').readOnly = true;
+                codeArea.classList.add('hidden');
+                sendCodeBtn.disabled = true;
+                sendCodeBtn.innerText = '인증됨';
+                
+                submitBtn.disabled = false;
+                submitBtn.style.backgroundColor = '#6f42c1';
+                submitBtn.style.cursor = 'pointer';
+                submitBtn.innerText = '가입하기';
+            } catch (err) {
+                alert('실패: ' + err.message);
+            }
+        });
+
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!isEmailVerified) return alert('이메일 인증을 먼저 완료해주세요.');
+
+            const data = {
+                email: verifiedEmail,
+                password: document.getElementById('password').value,
+                name: document.getElementById('name').value,
+                birth: document.getElementById('birth').value,
+                phone_num: document.getElementById('phone_num').value,
+                nickname: document.getElementById('nickname').value || null,
+                organization: document.getElementById('organization').value || null,
+                dept: document.getElementById('dept').value || null,
+                profile_url: document.getElementById('profile_url').value || null,
+                detail: document.getElementById('detail').value || null,
+                gender: document.querySelector('input[name="gender"]:checked').value === 'true'
+            };
+
+            try {
+                const result = await fetch('/members/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                }).then(handleResponse);
+
+                alert(result.message || '회원가입이 완료되었습니다!');
+                window.location.href = '/login.html';
+            } catch (err) {
+                alert('실패: ' + err.message);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -51,6 +51,19 @@ class Settings(BaseSettings):
     # LOGGING
     LOG_LEVEL: str = "INFO"
 
+    # SMTP Settings
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    EMAIL_FROM: str = ""
+
+    # REDIS Settings
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: str | None = None
+    REDIS_DB: int = 0
+
     # Oracle Cloud Storage
     OCI_USER_OCID: str = ""
     OCI_API_KEY_PATH: str = ""

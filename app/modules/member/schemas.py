@@ -5,6 +5,8 @@ from uuid import UUID
 from pydantic import HttpUrl, ConfigDict, EmailStr
 from sqlmodel import SQLModel, Field
 
+from app.shared.enums import MemberRole
+
 
 #In: 서버 API로 들어오는 데이터(요청)
 #Out: 서버 API에서 나가는 데이터(응답)
@@ -84,6 +86,7 @@ class MemberUpdateIn(SQLModel):
 class MemberOut(SQLModel):
     id: UUID = Field(description="회원 ID")
     email: EmailStr = Field(description="회원 이메일")
+    role: MemberRole = Field(description="회원 권한")
     name: str = Field(description="이름")
     birth: date = Field(description="생년월일")
     gender: bool | None = Field(default=None, description="성별")
@@ -121,7 +124,7 @@ class TokenOut(SQLModel):
     token_type: str = Field(default="Bearer", description="토큰 타입")
 
     model_config = ConfigDict(
-        json_schema_extra={
+        json_schema_extra= {
             "example": {
                 "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                 "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -138,6 +141,71 @@ class RefreshTokenIn(SQLModel):
         "json_schema_extra": {
             "example": {
                 "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            }
+        }
+    }
+
+#회원가입 이메일 인증 요청 (이메일 입력)
+class SignupVerifyRequestIn(SQLModel):
+    email: EmailStr = Field(description="인증할 이메일")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "newuser@example.com"
+            }
+        }
+    }
+
+#회원가입 이메일 인증 확인 (이메일 + 인증코드)
+class SignupVerifyConfirmIn(SQLModel):
+    email: EmailStr = Field(description="이메일")
+    code: str = Field(..., min_length=6, max_length=6, description="6자리 인증 코드")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "newuser@example.com",
+                "code": "123456"
+            }
+        }
+    }
+
+#비밀번호 재설정 요청 (이메일 입력)
+class PasswordResetRequestIn(SQLModel):
+    email: EmailStr = Field(description="비밀번호 재설정 요청 이메일")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "test@example.com"
+            }
+        }
+    }
+
+#비밀번호 재설정 확인 (이메일 + 인증코드 + 새 비밀번호)
+class PasswordResetConfirmIn(SQLModel):
+    email: EmailStr = Field(description="이메일")
+    code: str = Field(..., min_length=6, max_length=6, description="6자리 인증 코드")
+    new_password: str = Field(..., min_length=8, description="새 비밀번호")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "test@example.com",
+                "code": "123456",
+                "new_password": "newpassword123!"
+            }
+        }
+    }
+
+class MemberRoleUpdateIn(SQLModel):
+    role: MemberRole = Field(description="변경할 회원 권한")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "role": "admin"
             }
         }
     }

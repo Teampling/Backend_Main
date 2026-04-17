@@ -7,10 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
 from app.core.security import password_hash, verify_password, create_access_token, create_refresh_token, decode_token
+from app.shared.utils.email import generate_verification_code, send_verification_email, verify_code
+from app.core.redis import redis_client
 from app.modules.member.models import Member
 from app.modules.member.repository import MemberRepository
 from app.modules.member.schemas import MemberCreateIn, MemberUpdateIn
-from app.shared.enums import ProviderType
+from app.shared.enums import ProviderType, MemberRole
 
 
 #pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto") #비밀번호 해쉬화
@@ -83,8 +85,37 @@ class MemberService:
             "total": total
         }
 
+    # [1단계] 회원가입용 인증 코드 발송
+    async def request_signup_verification(self, email: str) -> None:
+        # 이미 가입된 이메일인지 먼저 체크
+        existing = await self.repository.get_by_email(email)
+        if existing:
+            raise AppError.bad_request(f"[{email}]은(는) 이미 존재하는 회원 이메일입니다.")
+
+        code = generate_verification_code()
+        await send_verification_email(
+            email=email,
+            code=code,
+            purpose="signup",
+            custom_message="팀플링 회원가입을 위한 인증 코드입니다."
+        )
+
+    # [2단계] 인증 코드 검증 및 '인증 완료' 증표 남기기
+    async def confirm_signup_verification(self, email: str, code: str) -> None:
+        is_valid = await verify_code(email, code, purpose="signup")
+        if not is_valid:
+            raise AppError.bad_request("인증 코드가 틀렸거나 만료되었습니다.")
+
+        # 인증 완료 증표를 Redis에 10분(600초)간 저장 (key: verify:signup_passed:{email})
+        await redis_client.setex(f"verify:signup_passed:{email}", 600, "true")
+
     #멤버 생성 서비스(save)
     async def create(self, data: MemberCreateIn) -> Member:
+        # [3단계] 최종 회원가입 시 증표 확인
+        passed = await redis_client.get(f"verify:signup_passed:{data.email}")
+        if not passed:
+            raise AppError.bad_request("이메일 인증이 완료되지 않았거나 인증 시간이 만료되었습니다.")
+
         existing = await self.repository.get_by_email(data.email) #회원이 이미 있는 경우 가입 불가능하게 하기 위한 작업
         if existing:
             raise AppError.bad_request(f"[{data.email}]은(는) 이미 존재하는 회원 이메일입니다.")
@@ -114,6 +145,9 @@ class MemberService:
             await self.session.commit()
             #서비스 단계에서 DB 데이터 변화가 있을 수 있기 때문에 또 refresh함.
             await self.session.refresh(saved)
+
+            # 가입 성공 후 Redis 증표 삭제
+            await redis_client.delete(f"verify:signup_passed:{data.email}")
             return saved
         #무결성 제약 조건 에러
         #위의 AppError.bad_request 에러 부분과 다른 점은
@@ -124,9 +158,9 @@ class MemberService:
 
     #멤버 수정 서비스(save)
     #여기서의 member_id는 수정을 원하는 회원 id인데 수정할 회원 id가 없으면 안되므로 이렇게 구현.
-    async def update(self, target_member_id: UUID, actor_member_id: UUID, data: MemberUpdateIn) -> Member:
-        if actor_member_id != target_member_id:
-            raise AppError.forbidden("본인 정보만 수정할 수 있습니다.")
+    async def update(self, target_member_id: UUID, actor: Member, data: MemberUpdateIn) -> Member:
+        if actor.role != MemberRole.ADMIN and actor.id != target_member_id:
+            raise AppError.forbidden("본인 정보만 수정할 수 있거나 관리자 권한이 필요합니다.")
 
         member = await self.repository.get_by_id(target_member_id, include_deleted=False)
         if not member:
@@ -181,11 +215,31 @@ class MemberService:
             await self.session.rollback() #아까 했던 DB 작업 전부 취소
             raise AppError.bad_request(f"[{data.email}]은(는) 이미 존재하는 회원 이메일입니다.")
 
+    async def update_role(self, member_id: UUID, role: MemberRole) -> Member:
+        """
+        관리자가 특정 회원의 권한을 수정합니다.
+        """
+        member = await self.repository.get_by_id(member_id, include_deleted=False)
+        if not member:
+            raise AppError.not_found(f"Member[{member_id}]")
+
+        member.role = role
+
+        try:
+            updated = await self.repository.save(member)
+            await self.session.commit()
+            await self.session.refresh(updated)
+            return updated
+        except Exception:
+            await self.session.rollback()
+            raise
+
     # 멤버 삭제 서비스(soft_delete, hard_delete)
     #member를 삭제하는데 hard=True면 진짜 삭제, 아니면 soft delete
-    async def delete(self, target_member_id: UUID, actor_member_id: UUID, *, hard: bool = False) -> None:
-        if actor_member_id != target_member_id:
-            raise AppError.forbidden("본인 정보만 삭제할 수 있습니다.")
+    async def delete(self, target_member_id: UUID, actor: Member, *, hard: bool = False) -> None:
+        # 관리자가 아니면서 본인이 아닌 경우에만 차단
+        if actor.role != MemberRole.ADMIN and actor.id != target_member_id:
+            raise AppError.forbidden("본인 정보만 삭제할 수 있거나 관리자 권한이 필요합니다.")
 
         #삭제된 것이든 아니든 다 가져옴
         #왜냐하면, hard delete 하려면 이미 삭제된 것도 찾아야 하기 때문에
@@ -285,3 +339,39 @@ class MemberService:
         except Exception as e:
             raise AppError.unauthorized(f"토큰 재발급 과정에서 오류가 발생했습니다.: {str(e)}")
 
+    # [1단계] 비밀번호 재설정 요청: 인증 코드 발송
+    async def request_password_reset(self, email: str) -> None:
+        member = await self.repository.get_by_email(email)
+        # 보안상 이메일이 없어도 오류를 내지 않고 발송 완료 메시지만 띄우는 것이 일반적입니다.
+        if not member:
+            return
+
+        code = generate_verification_code()
+        await send_verification_email(
+            email=email,
+            code=code,
+            purpose="reset_password",
+            custom_message="비밀번호 재설정 인증 코드입니다."
+        )
+
+    # [2단계] 코드 검증 및 실제 비밀번호 변경
+    async def confirm_password_reset(self, email: str, code: str, new_password: str) -> None:
+        # 1. 코드 검증 (Redis 확인 및 성공 시 자동 삭제)
+        is_valid = await verify_code(email, code, purpose="reset_password")
+        if not is_valid:
+            raise AppError.bad_request("인증 코드가 틀렸거나 만료되었습니다.")
+
+        # 2. 사용자 확인
+        member = await self.repository.get_by_email(email)
+        if not member:
+            raise AppError.not_found("사용자를 찾을 수 없습니다.")
+
+        # 3. 비밀번호 업데이트 (해싱 후 저장)
+        member.hashed_password = password_hash(new_password)
+
+        try:
+            await self.repository.save(member)
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise AppError.internal_server_error("비밀번호 변경 중 오류가 발생했습니다.")

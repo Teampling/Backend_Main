@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>팀플링 - Teampling</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">팀플링</a>
+        <div class="nav-links" id="nav-links">
+            <!-- JavaScript will fill this -->
+            <a href="/login.html" class="login-btn">로그인</a>
+        </div>
+    </header>
+
+    <main>
+        <div id="content" class="welcome-msg">
+            <h1>팀플링에 오신 것을 환영합니다!</h1>
+            <p>팀 프로젝트를 더 쉽고 효율적으로 관리하세요.</p>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const navLinks = document.getElementById('nav-links');
+            const token = localStorage.getItem('access_token');
+            const userName = localStorage.getItem('user_name');
+            const userNickname = localStorage.getItem('user_nickname');
+            const userProfile = localStorage.getItem('user_profile');
+
+            if (token) {
+                const displayName = userNickname;
+                
+                // 프로필 이미지가 있으면 해당 이미지, 없으면 기본 아이콘 사용
+                const profileImg = userProfile && userProfile !== 'null' 
+                    ? userProfile 
+                    : 'https://cdn-icons-png.flaticon.com/512/149/149071.png'; // 기본 프로필 이미지
+
+                navLinks.innerHTML = `
+                    <div class="user-profile-info">
+                        <img src="${profileImg}" alt="profile" class="header-profile-img">
+                        <span class="user-nickname">${displayName}</span>
+                        <button onclick="logout()" style="color: #6c757d; font-size: 0.85rem; padding: 0.2rem 0.5rem; border: 1px solid #dee2e6; border-radius: 4px; margin-left: 5px;">로그아웃</button>
+                    </div>
+                `;
+            }
+        });
+
+        function logout() {
+            localStorage.clear(); // 모든 저장 정보 삭제
+            location.reload();
+        }
+    </script>
+</body>
+</html>

@@ -5,8 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Path, Query, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.modules.member.dependencies import CurrentMemberDep, MemberServiceDep
-from app.modules.member.schemas import MemberCreateIn, MemberOut, MemberUpdateIn, TokenOut, RefreshTokenIn
+from app.modules.member.dependencies import CurrentMemberDep, MemberServiceDep, AdminMemberDep
+from app.modules.member.schemas import (
+    MemberCreateIn, MemberOut, MemberUpdateIn, TokenOut, RefreshTokenIn,
+    PasswordResetRequestIn, PasswordResetConfirmIn,
+    SignupVerifyRequestIn, SignupVerifyConfirmIn, MemberRoleUpdateIn
+)
 from app.shared.schemas import ApiResponse, PageOut
 
 
@@ -24,6 +28,7 @@ router = APIRouter(prefix="/members", tags=["Member"])
 )
 async def list_members(
         service: MemberServiceDep,
+        admin: AdminMemberDep,
         keyword: Annotated[str | None, Query(description="검색 키워드", example="수진")] = None,
         #ge: 이상, le: 이하
         page: Annotated[int,Query(ge=1, description="페이지 번호")] = 1,
@@ -53,6 +58,21 @@ async def list_members(
         ),
     )
 
+@router.get(
+    path="/me",
+    response_model=ApiResponse[MemberOut],
+    summary="내 정보 조회",
+    description="현재 로그인한 회원의 정보를 조회합니다."
+)
+async def get_my_info(
+        current_member: CurrentMemberDep,
+):
+    return ApiResponse.success(
+        code="MEMBER_FETCHED",
+        message="내 정보 조회 성공",
+        data=MemberOut.model_validate(current_member)
+    )
+
 #path: 경로, response_model: Swagger에서 보여줄 응답 예시 형태
 #summary: Swagger에서 보여줄 간단한 API 설명
 #description: Swagger에서 보여줄 상세한 API 설명
@@ -80,7 +100,7 @@ async def get_member(
     )
 
 @router.post(
-    path="",
+    path="/signup",
     response_model=ApiResponse[MemberOut],
     status_code=status.HTTP_201_CREATED,
     summary="회원 생성",
@@ -118,7 +138,7 @@ async def update_member(
     #DB 수정 → 수정된 객체 받음
     updated = await service.update(
         target_member_id=member_id,
-        actor_member_id=current_member.id,
+        actor=current_member,
         data=data
     )
     return ApiResponse.success(
@@ -130,6 +150,26 @@ async def update_member(
         data=MemberOut.model_validate(updated),
         #응답용 데이터로 변환 (필터링 + 검증)
     )
+
+@router.patch(
+    path="/{member_id}/role",
+    response_model=ApiResponse[MemberOut],
+    summary="회원 권한 수정",
+    description="관리자가 특정 회원의 권한을 수정합니다."
+)
+async def update_member_role(
+        service: MemberServiceDep,
+        admin: AdminMemberDep,
+        member_id: Annotated[UUID, Path(description="권한을 수정할 member ID")],
+        data: MemberRoleUpdateIn,
+):
+    updated = await service.update_role(member_id=member_id, role=data.role)
+    return ApiResponse.success(
+        code="MEMBER_ROLE_UPDATED",
+        message="회원 권한 수정 성공",
+        data=MemberOut.model_validate(updated)
+    )
+
 #model_dump()와 model_validated() 차이점
 #model_dump(): Pydantic → dict(Json 형태)
 #언제 할까?: DB에 넣을 때, PATCH 할 때 (exclude_unset=True), JSON 응답 만들 때
@@ -152,7 +192,7 @@ async def delete_member(
     #router는 요청 받기만 하고, Service가 진짜 일함
     await service.delete(
         target_member_id=member_id,
-        actor_member_id=current_member.id,
+        actor=current_member,
         hard=hard
     )
     return ApiResponse.success(
@@ -211,3 +251,82 @@ async def reissue_refresh_token(
 ):
     tokens = await service.reissue(data.refresh_token)
     return TokenOut(**tokens)
+
+# 회원가입 이메일 인증 요청 (인증 코드 발송)
+@router.post(
+    path="/signup/verify/request",
+    response_model=ApiResponse[None],
+    summary="회원가입 이메일 인증 요청",
+    description="회원가입 전 이메일 중복 확인 및 인증 코드를 발송합니다."
+)
+async def request_signup_verification(
+        service: MemberServiceDep,
+        data: SignupVerifyRequestIn,
+):
+    await service.request_signup_verification(data.email)
+    return ApiResponse.success(
+        code="SIGNUP_VERIFY_CODE_SENT",
+        message="인증 코드가 이메일로 발송되었습니다.",
+        data=None
+    )
+
+# 회원가입 이메일 인증 확인 (코드 검증)
+@router.post(
+    path="/signup/verify/confirm",
+    response_model=ApiResponse[None],
+    summary="회원가입 이메일 인증 확인",
+    description="인증 코드를 검증하고 회원가입 가능한 상태로 표시합니다."
+)
+async def confirm_signup_verification(
+        service: MemberServiceDep,
+        data: SignupVerifyConfirmIn,
+):
+    await service.confirm_signup_verification(
+        email=data.email,
+        code=data.code
+    )
+    return ApiResponse.success(
+        code="SIGNUP_VERIFY_SUCCESS",
+        message="이메일 인증이 완료되었습니다.",
+        data=None
+    )
+
+# 비밀번호 재설정 요청 (인증 코드 이메일 발송)
+@router.post(
+    path="/password/reset/request",
+    response_model=ApiResponse[None],
+    summary="비밀번호 재설정 요청",
+    description="이메일로 6자리 인증 코드를 발송합니다."
+)
+async def request_password_reset(
+        service: MemberServiceDep,
+        data: PasswordResetRequestIn,
+):
+    await service.request_password_reset(data.email)
+    return ApiResponse.success(
+        code="PASSWORD_RESET_CODE_SENT",
+        message="인증 코드가 이메일로 발송되었습니다.",
+        data=None
+    )
+
+# 비밀번호 재설정 확정 (코드 검증 + 새 비밀번호 설정)
+@router.post(
+    path="/password/reset/confirm",
+    response_model=ApiResponse[None],
+    summary="비밀번호 재설정 확정",
+    description="이메일과 인증 코드, 새 비밀번호를 받아 비밀번호를 변경합니다."
+)
+async def confirm_password_reset(
+        service: MemberServiceDep,
+        data: PasswordResetConfirmIn,
+):
+    await service.confirm_password_reset(
+        email=data.email,
+        code=data.code,
+        new_password=data.new_password
+    )
+    return ApiResponse.success(
+        code="PASSWORD_RESET_SUCCESS",
+        message="비밀번호가 성공적으로 변경되었습니다.",
+        data=None
+    )
