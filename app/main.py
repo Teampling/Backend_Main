@@ -19,7 +19,6 @@ from app.modules.notice.models import Notice
 from app.modules.notification.models import Notification
 from app.modules.project.models import Project
 from app.modules.resource.models import Resource
-from app.modules.team.models import Team
 from app.modules.work.models import Work
 
 class HealthOut(BaseModel):
