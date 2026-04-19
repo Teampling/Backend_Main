@@ -1,7 +1,6 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import HttpUrl
 from sqlmodel import SQLModel, Field
 
 
@@ -10,7 +9,6 @@ class ProjectCreateIn(SQLModel):
     start_date: datetime = Field(description="프로젝트 시작 일자")
     end_date: datetime = Field(description="프로젝트 종료 일자")
     detail: str | None = Field(default=None, description="프로젝트 상세설명")
-    img_url: HttpUrl | None = Field(default=None, description="프로젝트 이미지 url")
 
     model_config = {
         "json_schema_extra": {
@@ -19,7 +17,6 @@ class ProjectCreateIn(SQLModel):
                 "start_date": "2026-02-02",
                 "end_date": "2026-05-02",
                 "detail": "팀플링 프로젝트 입니다.",
-                "img_url": "https://example.com/img.jpg"
             }
         }
     }
@@ -29,7 +26,6 @@ class ProjectUpdateIn(SQLModel):
     start_date: datetime | None = Field(default=None, description="프로젝트 시작 일자")
     end_date: datetime | None = Field(default=None, description="프로젝트 종료 일자")
     detail: str | None = Field(default=None, description="프로젝트 상세설명")
-    img_url: HttpUrl | None = Field(default=None, description="프로젝트 이미지 url")
 
     model_config = {
         "json_schema_extra": {
@@ -38,7 +34,6 @@ class ProjectUpdateIn(SQLModel):
                 "start_date": "2026-02-02",
                 "end_date": "2026-05-02",
                 "detail": "팀플링 프로젝트 입니다.",
-                "img_url": "https://example.com/img.jpg"
             }
         }
     }
@@ -50,7 +45,6 @@ class ProjectOut(SQLModel):
     start_date: datetime = Field(description="프로젝트 시작 일자")
     end_date: datetime = Field(description="프로젝트 종료 일자")
     detail: str | None = Field(default=None, description="프로젝트 상세설명")
-    img_url: HttpUrl | None = Field(default=None, description="프로젝트 이미지 url")
 
     model_config = {
         "json_schema_extra": {
@@ -61,7 +55,6 @@ class ProjectOut(SQLModel):
                 "start_date": "2026-02-02",
                 "end_date": "2026-05-02",
                 "detail": "팀플링 프로젝트 입니다.",
-                "img_url": "https://example.com/img.jpg"
             }
         }
     }

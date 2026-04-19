@@ -1,3 +1,5 @@
+from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -17,15 +19,12 @@ class ProjectService:
     async def get(self, project_id: UUID, *, include_deleted: bool = False) -> Project:
         project = await self.repository.get_by_id(project_id, include_deleted=include_deleted)
         if not project:
-            raise AppError.not_found(f"Project[{project_id}")
+            raise AppError.not_found(f"Project[{project_id}]")
         return project
 
     async def create(self, actor_member_id: UUID, data: ProjectCreateIn) -> Project:
-        existing = await self.repository.get_by_id(data.id)
-        if existing:
-            raise AppError.bad_request(f"[{data.id}은(는) 이미 존재하는 프로젝트입니다.]")
-
         project = Project(
+            **data.model_dump(),
             leader_id=actor_member_id
         )
 
@@ -37,23 +36,55 @@ class ProjectService:
 
         except IntegrityError:
             await self.session.rollback()
-            raise AppError.bad_request(f"[{data.id}은(는) 이미 존재하는 프로젝트입니다.]")
+            raise AppError.bad_request(f"[{project.name}]은(는) 이미 존재하는 프로젝트입니다.")
+
+    async def list(
+        self,
+        *,
+        keyword: str | None = None,
+        start_after: datetime | None = None,
+        end_before: datetime | None = None,
+        page: int = 1,
+        size: int = 20,
+        include_deleted: bool = False,
+    ) -> dict[str, Any]:
+        if page < 1:
+            page = 1
+        if size < 1:
+            size = 1
+        if size > 100:
+            size = 100
+
+        offset = (page - 1) * size
+
+        items = await self.repository.list(
+            keyword=keyword,
+            start_after=start_after,
+            end_before=end_before,
+            offset=offset,
+            limit=size,
+            include_deleted=include_deleted,
+        )
+        total = await self.repository.count(
+            keyword=keyword,
+            start_after=start_after,
+            end_before=end_before,
+            include_deleted=include_deleted,
+        )
+
+        return {"items": items, "page": page, "size": size, "total": total}
 
     async def update(self, target_project_id: UUID, actor_member_id: UUID, data: ProjectUpdateIn) -> Project:
         project = await self.get(target_project_id, include_deleted=False)
-        target_member_id = project.leader_id
-
-        if actor_member_id != target_member_id:
-            raise AppError.forbidden("본인이 만든 프로젝트만 수정할 수 있습니다.")
         if not project:
-            raise not AppError.not_found(f"Project[{target_member_id}")
+            raise AppError.not_found(f"Project[{target_project_id}]")
+
+        if actor_member_id != project.leader_id:
+            raise AppError.forbidden("본인이 리더인 프로젝트만 수정할 수 있습니다.")
 
         patch = data.model_dump(
             exclude_unset=True,
         )
-
-        if "img_url" in patch and patch["img_url"] is not None:
-            patch["img_url"] = str(patch["img_url"])
 
         for k, v in patch.items():
             setattr(project, k, v)
@@ -66,14 +97,19 @@ class ProjectService:
 
         except IntegrityError:
             await self.session.rollback()
-            raise AppError.bad_request(f"[{data.id}]은(는) 이미 존재하는 프로젝트입니다.")
+            raise AppError.bad_request(f"[{project.name}] 수정 중 오류가 발생했습니다.")
 
     async def delete(self, target_project_id: UUID, actor_member_id: UUID, *, hard: bool = False) -> None:
         project = await self.get(target_project_id, include_deleted=True)
-        target_member_id = project.leader_id
+        if not project:
+            raise AppError.not_found(f"Project[{target_project_id}]")
 
-        if actor_member_id != target_member_id:
-            raise AppError.forbidden("본인 프로젝트만 삭제할 수 있습니다.")
+        if actor_member_id != project.leader_id:
+            raise AppError.forbidden("본인이 리더인 프로젝트만 삭제할 수 있습니다.")
+
+        member_count = await self.repository.get_member_count(target_project_id)
+        if member_count > 1:
+            raise AppError.bad_request("나를 제외한 팀원이 남아있는 프로젝트는 삭제할 수 없습니다. 모든 팀원을 내보낸 후 삭제해주세요.")
 
         try:
             if hard:

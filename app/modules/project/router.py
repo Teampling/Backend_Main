@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Path, Query, Depends, status
@@ -14,25 +15,29 @@ router = APIRouter(prefix="/project", tags=["Project"])
     path="",
     response_model=ApiResponse[PageOut[ProjectOut]],
     summary="프로젝트 목록 조회",
-    description="키워드, 페이지, 사이즈 조건으로 프로젝트 목록을 조회합니다.",
+    description="키워드, 날짜 범위, 페이지, 사이즈 조건으로 프로젝트 목록을 조회합니다.",
 )
 async def list_projects(
         service: ProjectServiceDep,
-        keyword: Annotated[str | None, Query(description="검색 키워드", example="팀플")] = None,
+        keyword: Annotated[str | None, Query(description="검색 키워드 (이름, 상세설명)", example="팀플")] = None,
+        start_after: Annotated[datetime | None, Query(description="조회 시작일 (이 날짜 이후 시작된 프로젝트)")] = None,
+        end_before: Annotated[datetime | None, Query(description="조회 종료일 (이 날짜 이전 종료된 프로젝트)")] = None,
         page: Annotated[int, Query(ge=1, description="페이지 번호")] = 1,
         size: Annotated[int, Query(ge=1, le=100, description="페이지 크기")] = 50,
         include_deleted: Annotated[bool, Query(description="soft delete된 데이터 포함 여부")] = False,
 ):
     result = await service.list(
         keyword=keyword,
+        start_after=start_after,
+        end_before=end_before,
         page=page,
         size=size,
         include_deleted=include_deleted,
     )
 
-    return ApiResponse(
+    return ApiResponse.success(
         code="PROJECT_LIST_FETCHED",
-        message="project 목록 조회 성공",
+        message="프로젝트 목록 조회 성공",
         data=PageOut[ProjectOut](
             items=[ProjectOut.model_validate(item) for item in result["items"]],
             page=result["page"],
@@ -123,16 +128,23 @@ async def delete_project(
     )
     return ApiResponse.success(
         code="PROJECT_DELETED",
-        message="project 삭제 성공",
+        message="프로젝트 삭제 성공",
         data=None
     )
+
+@router.post(
+    path="/{project_id}/restore",
+    response_model=ApiResponse[ProjectOut],
+    summary="프로젝트 복구",
+    description="삭제된 프로젝트를 복구합니다.",
+)
 async def restore_project(
         service: ProjectServiceDep,
-        project_id: Annotated[UUID, Path(description="복구할 project의 ID")],
+        project_id: Annotated[UUID, Path(description="복구할 프로젝트의 ID")],
 ):
     restored = await service.restore(project_id)
     return ApiResponse.success(
         code="PROJECT_RESTORED",
-        message="Project 복구 성공",
+        message="프로젝트 복구 성공",
         data=ProjectOut.model_validate(restored)
     )

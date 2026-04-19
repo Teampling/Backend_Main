@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.modules.project.models import Project
+from app.modules.project.models import ProjectMember
 
 
 class ProjectRepository:
@@ -22,6 +23,8 @@ class ProjectRepository:
             self,
             *,
             keyword: str | None = None,
+            start_after: datetime | None = None,
+            end_before: datetime | None = None,
             offset: int = 0,
             limit: int = 100,
             include_deleted: bool = False,
@@ -29,23 +32,43 @@ class ProjectRepository:
         stmt = select(Project)
 
         if keyword:
-            stmt = stmt.where(Project.name.ilike(f"%{keyword}%"))
+            stmt = stmt.where(
+                (Project.name.ilike(f"%{keyword}%")) |
+                (Project.detail.ilike(f"%{keyword}%"))
+            )
+
+        if start_after:
+            stmt = stmt.where(Project.start_date >= start_after)
+
+        if end_before:
+            stmt = stmt.where(Project.end_date <= end_before)
 
         if not include_deleted:
             stmt = stmt.where(Project.is_deleted == False)
 
-        stmt = stmt.order_by(Project.name.asc()).offset(offset).limit(limit)
+        stmt = stmt.order_by(Project.created_at.desc()).offset(offset).limit(limit)
         return (await self.session.scalars(stmt)).all()
 
     async def count(
             self,
             *,
             keyword: str | None = None,
+            start_after: datetime | None = None,
+            end_before: datetime | None = None,
             include_deleted: bool = False) -> int:
         stmt = select(func.count()).select_from(Project)
 
         if keyword:
-            stmt = stmt.where(Project.name.ilike(f"%{keyword}%"))
+            stmt = stmt.where(
+                (Project.name.ilike(f"%{keyword}%")) |
+                (Project.detail.ilike(f"%{keyword}%"))
+            )
+
+        if start_after:
+            stmt = stmt.where(Project.start_date >= start_after)
+
+        if end_before:
+            stmt = stmt.where(Project.end_date <= end_before)
 
         if not include_deleted:
             stmt = stmt.where(Project.is_deleted == False)
@@ -53,10 +76,14 @@ class ProjectRepository:
         return int(await self.session.scalar(stmt) or 0)
 
     async def save(self, project: Project) -> Project:
-        self.session.add(Project)
+        self.session.add(project)
         await self.session.flush()
-        await self.session.refresh(project)
         return project
+
+    async def get_member_count(self, project_id: UUID) -> int:
+
+        stmt = select(func.count()).select_from(ProjectMember).where(ProjectMember.project_id == project_id)
+        return int(await self.session.scalar(stmt) or 0)
 
     async def soft_delete(self, project: Project) -> Project:
         project.is_deleted = True
