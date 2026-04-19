@@ -67,10 +67,14 @@ async def get_project(
     description="프로젝트 생성 기능입니다.",
 )
 async def create_project(
+        current_member: CurrentMemberDep,
         data: ProjectCreateIn,
         service: ProjectServiceDep,
 ):
-    created = await service.create(data)
+    created = await service.create(
+        actor_member_id=current_member.id,
+        data=data
+    )
     return ApiResponse.success(
         code="PROJECT_CREATED",
         message="프로젝트 생성 성공",

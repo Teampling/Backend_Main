@@ -21,19 +21,17 @@ class ProjectService:
             raise AppError.not_found(f"Project[{project_id}")
         return project
 
-    async def create(self, data: ProjectCreateIn) -> Project:
+    async def create(self, actor_member_id: UUID, data: ProjectCreateIn) -> Project:
         existing = await self.repository.get_by_id(data.id)
         if existing:
             raise AppError.bad_request(f"[{data.id}은(는) 이미 존재하는 프로젝트입니다.]")
 
         project = Project(
-            **data.model_dump(exclude={"img_url"}),
-            img_url=str(data.img_url) if data.img_url is not None else None
-
+            leader_id=actor_member_id
         )
 
         try:
-            saved = await self.repository.save(Project)
+            saved = await self.repository.save(project)
             await self.session.commit()
             await self.session.refresh(saved)
             return saved
