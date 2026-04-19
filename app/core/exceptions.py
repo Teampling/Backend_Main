@@ -22,3 +22,7 @@ class AppError(HTTPException):
     @staticmethod
     def not_found(entity="resourse"):
         return AppError(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"{entity}을(를) 찾을 수 없습니다.")
+
+    @staticmethod
+    def internal_server_error(message="Internal Server Error"):
+        return AppError(status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", message)

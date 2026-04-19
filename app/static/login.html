@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 - 팀플링</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">팀플링</a>
+    </header>
+
+    <main>
+        <div class="auth-container">
+            <h2>로그인</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email">이메일</label>
+                    <input type="email" id="email" required placeholder="example@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="password">비밀번호</label>
+                    <input type="password" id="password" required placeholder="비밀번호를 입력하세요">
+                </div>
+                <button type="submit" class="btn-primary">로그인</button>
+            </form>
+            <div class="auth-links">
+                <a href="/signup.html">회원가입</a>
+                <span>|</span>
+                <a href="/password-reset.html">비밀번호 찾기</a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        async function handleResponse(response) {
+            const data = await response.json();
+            if (!response.ok) {
+                // error message 우선순위: response.message > response.detail > statusText
+                throw new Error(data.message || data.detail || response.statusText || '오류 발생');
+            }
+            return data;
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            const formData = new FormData();
+            formData.append('username', email);
+            formData.append('password', password);
+
+            try {
+                // login API는 Swagger 호환을 위해 ApiResponse로 감싸지 않은 직접적인 TokenOut을 반환함
+                const tokens = await fetch('/members/login', {
+                    method: 'POST',
+                    body: formData
+                }).then(handleResponse);
+
+                // tokens는 {access_token, refresh_token, token_type} 직접 객체임
+                localStorage.setItem('access_token', tokens.access_token);
+                localStorage.setItem('refresh_token', tokens.refresh_token);
+
+                // 사용자 정보 조회 (/me 는 ApiResponse[MemberOut] 형태임)
+                const userResult = await fetch('/members/me', {
+                    headers: {
+                        'Authorization': `Bearer ${tokens.access_token}`
+                    }
+                }).then(handleResponse);
+
+                localStorage.setItem('user_username', userResult.data.username);
+                localStorage.setItem('user_profile', userResult.data.profile_url || '');
+                window.location.href = '/';
+            } catch (err) {
+                alert('로그인 실패: ' + err.message);
+            }
+        });
+    </script>
+</body>
+</html>

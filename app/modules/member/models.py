@@ -2,9 +2,11 @@ from datetime import date
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from sqlalchemy import Enum, Column
 from sqlmodel import Field, Relationship
 
 from app.shared.models.base import BaseModel
+from app.shared.enums import MemberRole
 
 if TYPE_CHECKING:
     from app.modules.resource.models import Project
@@ -24,6 +26,18 @@ class Member(BaseModel, table=True):
         primary_key=True,
         nullable=False,
         description="회원 고유키"
+    )
+
+    role: MemberRole = Field(
+        default=MemberRole.USER,
+        sa_column=Column(
+            Enum(
+                MemberRole,
+                name="memberrole",
+                values_callable=lambda x: [e.value for e in x],
+            ),
+            nullable=False,
+        )
     )
 
     provider: str = Field(
@@ -50,44 +64,16 @@ class Member(BaseModel, table=True):
         description="회원 비밀번호"
     )
 
-    name: str = Field(
-        nullable=False,
-        description="회원 이름"
-    )
-
-    birth: date = Field(
-        nullable=False,
-        description="회원 생년월일"
-    )
-
-    gender: bool | None = Field(
+    username: str | None = Field(
         default=None,
         nullable=True,
-        description="회원 성별(0: 남, 1: 여, null: 성별을 밝히고 싶지 않음)"
-    )
-
-    phone_num: str = Field(
-        max_length=20,
-        nullable=False,
-        description="회원 전화번호"
-    )
-
-    nickname: str | None = Field(
-        default=None,
-        nullable=True,
-        description="회원 닉네임"
+        description="회원 사용자 이름"
     )
 
     organization: str | None = Field(
         default=None,
         nullable=True,
         description="회원 소속"
-    )
-
-    dept: str | None = Field(
-        default=None,
-        nullable=True,
-        description="회원 부서"
     )
 
     profile_url: str | None = Field(

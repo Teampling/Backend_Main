@@ -5,6 +5,8 @@ from uuid import UUID
 from pydantic import HttpUrl, ConfigDict, EmailStr
 from sqlmodel import SQLModel, Field
 
+from app.shared.enums import MemberRole
+
 
 #In: 서버 API로 들어오는 데이터(요청)
 #Out: 서버 API에서 나가는 데이터(응답)
@@ -23,60 +25,40 @@ from sqlmodel import SQLModel, Field
 class MemberCreateIn(SQLModel):
     email: EmailStr = Field(description="회원 이메일")
     password: str = Field(description="비밀번호")
-    name: str = Field(description="이름")
-    birth: date = Field(description="생년월일")
-    gender: bool | None = Field(default=None, description="성별")
-    phone_num: str = Field(description="전화번호")
-    nickname: str | None = Field(default=None, description="닉네임")
+    username: str | None = Field(default=None, description="사용자 이름")
     organization: str | None = Field(default=None, description="소속")
-    dept: str | None = Field(default=None, description="부서")
-    profile_url: HttpUrl | None = Field(default=None, description="프로필 이미지 URL")
     detail: str | None = Field(default=None, description="상세 소개")
 
     model_config = {
         "json_schema_extra": {
-            "example": {
-                "email": "test@naver.com",
-                "password": "test1234!",
-                "name": "송시월",
-                "birth": "2001-05-21",
-                "gender": True,
-                "phone_num": "01012345678",
-                "nickname": "쏴리쏭",
-                "organization": "한성대학교",
-                "dept": "컴퓨터공학과",
-                "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요!"
-            }
+            "examples": [
+                {
+                    "email": "test@naver.com",
+                    "password": "test1234!",
+                    "username": "쏴리쏭",
+                    "organization": "한성대학교",
+                    "detail": "안녕하세요!"
+                }
+            ]
         }
     }
 
 class MemberUpdateIn(SQLModel):
     password: str | None = Field(default=None, description="비밀번호")
-    name: str | None = Field(default=None, description="이름")
-    birth: date | None = Field(default=None, description="생년월일")
-    gender: bool | None = Field(default=None, description="성별")
-    phone_num: str | None = Field(default=None, description="전화번호")
-    nickname: str | None = Field(default=None, description="닉네임")
+    username: str | None = Field(default=None, description="사용자 이름")
     organization: str | None = Field(default=None, description="소속")
-    dept: str | None = Field(default=None, description="부서")
-    profile_url: HttpUrl | None = Field(default=None, description="프로필 이미지 URL")
     detail: str | None = Field(default=None, description="상세 소개")
 
     model_config = {
         "json_schema_extra": {
-            "example": {
-                "password": "test1234!",
-                "name": "송시월",
-                "birth": "2001-05-21",
-                "gender": True,
-                "phone_num": "01012345678",
-                "nickname": "쏴리쏭",
-                "organization": "한성대학교",
-                "dept": "컴퓨터공학과",
-                "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요!"
-            }
+            "examples": [
+                {
+                    "password": "test1234!",
+                    "username": "쏴리쏭",
+                    "organization": "한성대학교",
+                    "detail": "안녕하세요!"
+                }
+            ]
         }
     }
 
@@ -84,12 +66,9 @@ class MemberUpdateIn(SQLModel):
 class MemberOut(SQLModel):
     id: UUID = Field(description="회원 ID")
     email: EmailStr = Field(description="회원 이메일")
-    name: str = Field(description="이름")
-    birth: date = Field(description="생년월일")
-    gender: bool | None = Field(default=None, description="성별")
-    nickname: str | None = Field(default=None, description="닉네임")
+    role: MemberRole = Field(description="회원 권한")
+    username: str | None = Field(default=None, description="사용자 이름")
     organization: str | None = Field(default=None, description="소속")
-    dept: str | None = Field(default=None, description="부서")
     profile_url: HttpUrl | None = Field(default=None, description="프로필 이미지 URL")
     detail: str | None = Field(default=None, description="상세 소개")
 
@@ -101,12 +80,8 @@ class MemberOut(SQLModel):
             "example": {
                 "id": "3e1672cf-8d99-4b1c-9b5e-9c3ece11b089",
                 "email": "test@example.com",
-                "name": "송시월",
-                "birth": "2001-05-21",
-                "gender": True,
-                "nickname": "쏴리쏭",
+                "username": "쏴리쏭",
                 "organization": "한성대학교",
-                "dept": "컴퓨터공학과",
                 "profile_url": "https://example.com/profile.jpg",
                 "detail": "안녕하세요!"
             }
@@ -121,7 +96,7 @@ class TokenOut(SQLModel):
     token_type: str = Field(default="Bearer", description="토큰 타입")
 
     model_config = ConfigDict(
-        json_schema_extra={
+        json_schema_extra= {
             "example": {
                 "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                 "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -138,6 +113,71 @@ class RefreshTokenIn(SQLModel):
         "json_schema_extra": {
             "example": {
                 "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            }
+        }
+    }
+
+#회원가입 이메일 인증 요청 (이메일 입력)
+class SignupVerifyRequestIn(SQLModel):
+    email: EmailStr = Field(description="인증할 이메일")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "newuser@example.com"
+            }
+        }
+    }
+
+#회원가입 이메일 인증 확인 (이메일 + 인증코드)
+class SignupVerifyConfirmIn(SQLModel):
+    email: EmailStr = Field(description="이메일")
+    code: str = Field(..., min_length=6, max_length=6, description="6자리 인증 코드")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "newuser@example.com",
+                "code": "123456"
+            }
+        }
+    }
+
+#비밀번호 재설정 요청 (이메일 입력)
+class PasswordResetRequestIn(SQLModel):
+    email: EmailStr = Field(description="비밀번호 재설정 요청 이메일")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "test@example.com"
+            }
+        }
+    }
+
+#비밀번호 재설정 확인 (이메일 + 인증코드 + 새 비밀번호)
+class PasswordResetConfirmIn(SQLModel):
+    email: EmailStr = Field(description="이메일")
+    code: str = Field(..., min_length=6, max_length=6, description="6자리 인증 코드")
+    new_password: str = Field(..., min_length=8, description="새 비밀번호")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "test@example.com",
+                "code": "123456",
+                "new_password": "newpassword123!"
+            }
+        }
+    }
+
+class MemberRoleUpdateIn(SQLModel):
+    role: MemberRole = Field(description="변경할 회원 권한")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "role": "admin"
             }
         }
     }

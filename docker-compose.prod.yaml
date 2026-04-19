@@ -15,6 +15,18 @@ services:
       retries: 10
     restart: always
 
+  redis:
+    image: redis:7-alpine
+    container_name: teampling-redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: always
+
   app:
     image: ghcr.io/teampling/backend_main/backend:${IMAGE_TAG}
     container_name: teampling-app
@@ -22,6 +34,8 @@ services:
       - .env
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     expose:
       - "8000"
@@ -43,3 +57,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

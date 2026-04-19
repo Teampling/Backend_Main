@@ -11,3 +11,7 @@ class ProviderType(str, Enum):
     GOOGLE = "google"
     KAKAO = "kakao"
     NAVER = "naver"
+
+class MemberRole(str, Enum):
+    USER = "user"
+    ADMIN = "admin"
