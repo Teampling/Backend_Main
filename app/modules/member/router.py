@@ -2,7 +2,8 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Path, Query, Depends, status
+from fastapi import APIRouter, Path, Query, Depends, status, UploadFile
+from fastapi.params import File
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.modules.member.dependencies import CurrentMemberDep, MemberServiceDep, AdminMemberDep
@@ -12,7 +13,7 @@ from app.modules.member.schemas import (
     SignupVerifyRequestIn, SignupVerifyConfirmIn, MemberRoleUpdateIn
 )
 from app.shared.schemas import ApiResponse, PageOut
-
+from app.shared.utils.form import as_form
 
 #prefix: 앞에 공통적으로 들어갈 경로명
 #tags: Swagger에서 API를 분류할 때 사용하는 것
@@ -29,7 +30,7 @@ router = APIRouter(prefix="/members", tags=["Member"])
 async def list_members(
         service: MemberServiceDep,
         admin: AdminMemberDep,
-        keyword: Annotated[str | None, Query(description="검색 키워드", example="수진")] = None,
+        keyword: Annotated[str | None, Query(description="검색 키워드", example="쏴리쏭")] = None,
         #ge: 이상, le: 이하
         page: Annotated[int,Query(ge=1, description="페이지 번호")] = 1,
         size: Annotated[int, Query(ge=1, le=100, description="페이지 크기")] = 50,
@@ -85,7 +86,7 @@ async def get_my_info(
 #DbSessionDep: DB 접속 정보
 #Path: 경로 변수에게 설명을 추가할 수 있도록 하는 것
 #Query: 쿼리 파라미터 변수에게 설명을 추가할 수 있도록 하는 것
-#쿼리 파라미터: ex) /items?name=apple&page=2라고 한다면 name과 page가 쿼리 파라미터
+#쿼리 파라미터: ex) /items?username=sujin&page=2라고 한다면 username과 page가 쿼리 파라미터
 async def get_member(
         service: MemberServiceDep,
         member_id: Annotated[UUID, Path(..., description="조회할 member의 id")],
@@ -107,10 +108,11 @@ async def get_member(
     description="회원가입 기능입니다.",
 )
 async def create_member(
-        data: MemberCreateIn,
         service: MemberServiceDep,
+        data: Annotated[MemberCreateIn, Depends(as_form(MemberCreateIn))],
+        profile_file: Annotated[UploadFile | None, File(description="업로드할 프로필 이미지 파일")] = None,
 ):
-    created = await service.create(data)
+    created = await service.create(data, profile_file=profile_file)
     return ApiResponse.success(
         code="MEMBER_CREATED",
         message="회원가입 성공",
@@ -133,13 +135,15 @@ async def update_member(
         member_id: Annotated[UUID, Path(description="수정할 member의 ID")],
         #요청 JSON → (검증 + 파싱) → MemberUpdateIn 객체 → data로 들어옴
         #data는 검증 완료 된 Pydantic 객체
-        data: MemberUpdateIn,
+        data: Annotated[MemberUpdateIn, Depends(as_form(MemberUpdateIn))],
+        profile_file: Annotated[UploadFile | None, File(description="업로드할 프로필 이미지 파일")] = None,
 ):
     #DB 수정 → 수정된 객체 받음
     updated = await service.update(
         target_member_id=member_id,
         actor=current_member,
-        data=data
+        data=data,
+        profile_file=profile_file,
     )
     return ApiResponse.success(
         code="MEMBER_UPDATED",

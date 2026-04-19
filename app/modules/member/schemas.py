@@ -25,60 +25,40 @@ from app.shared.enums import MemberRole
 class MemberCreateIn(SQLModel):
     email: EmailStr = Field(description="회원 이메일")
     password: str = Field(description="비밀번호")
-    name: str = Field(description="이름")
-    birth: date = Field(description="생년월일")
-    gender: bool | None = Field(default=None, description="성별")
-    phone_num: str = Field(description="전화번호")
-    nickname: str | None = Field(default=None, description="닉네임")
+    username: str | None = Field(default=None, description="사용자 이름")
     organization: str | None = Field(default=None, description="소속")
-    dept: str | None = Field(default=None, description="부서")
-    profile_url: HttpUrl | None = Field(default=None, description="프로필 이미지 URL")
     detail: str | None = Field(default=None, description="상세 소개")
 
     model_config = {
         "json_schema_extra": {
-            "example": {
-                "email": "test@naver.com",
-                "password": "test1234!",
-                "name": "송시월",
-                "birth": "2001-05-21",
-                "gender": True,
-                "phone_num": "01012345678",
-                "nickname": "쏴리쏭",
-                "organization": "한성대학교",
-                "dept": "컴퓨터공학과",
-                "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요!"
-            }
+            "examples": [
+                {
+                    "email": "test@naver.com",
+                    "password": "test1234!",
+                    "username": "쏴리쏭",
+                    "organization": "한성대학교",
+                    "detail": "안녕하세요!"
+                }
+            ]
         }
     }
 
 class MemberUpdateIn(SQLModel):
     password: str | None = Field(default=None, description="비밀번호")
-    name: str | None = Field(default=None, description="이름")
-    birth: date | None = Field(default=None, description="생년월일")
-    gender: bool | None = Field(default=None, description="성별")
-    phone_num: str | None = Field(default=None, description="전화번호")
-    nickname: str | None = Field(default=None, description="닉네임")
+    username: str | None = Field(default=None, description="사용자 이름")
     organization: str | None = Field(default=None, description="소속")
-    dept: str | None = Field(default=None, description="부서")
-    profile_url: HttpUrl | None = Field(default=None, description="프로필 이미지 URL")
     detail: str | None = Field(default=None, description="상세 소개")
 
     model_config = {
         "json_schema_extra": {
-            "example": {
-                "password": "test1234!",
-                "name": "송시월",
-                "birth": "2001-05-21",
-                "gender": True,
-                "phone_num": "01012345678",
-                "nickname": "쏴리쏭",
-                "organization": "한성대학교",
-                "dept": "컴퓨터공학과",
-                "profile_url": "https://example.com/profile.jpg",
-                "detail": "안녕하세요!"
-            }
+            "examples": [
+                {
+                    "password": "test1234!",
+                    "username": "쏴리쏭",
+                    "organization": "한성대학교",
+                    "detail": "안녕하세요!"
+                }
+            ]
         }
     }
 
@@ -87,12 +67,8 @@ class MemberOut(SQLModel):
     id: UUID = Field(description="회원 ID")
     email: EmailStr = Field(description="회원 이메일")
     role: MemberRole = Field(description="회원 권한")
-    name: str = Field(description="이름")
-    birth: date = Field(description="생년월일")
-    gender: bool | None = Field(default=None, description="성별")
-    nickname: str | None = Field(default=None, description="닉네임")
+    username: str | None = Field(default=None, description="사용자 이름")
     organization: str | None = Field(default=None, description="소속")
-    dept: str | None = Field(default=None, description="부서")
     profile_url: HttpUrl | None = Field(default=None, description="프로필 이미지 URL")
     detail: str | None = Field(default=None, description="상세 소개")
 
@@ -104,12 +80,8 @@ class MemberOut(SQLModel):
             "example": {
                 "id": "3e1672cf-8d99-4b1c-9b5e-9c3ece11b089",
                 "email": "test@example.com",
-                "name": "송시월",
-                "birth": "2001-05-21",
-                "gender": True,
-                "nickname": "쏴리쏭",
+                "username": "쏴리쏭",
                 "organization": "한성대학교",
-                "dept": "컴퓨터공학과",
                 "profile_url": "https://example.com/profile.jpg",
                 "detail": "안녕하세요!"
             }

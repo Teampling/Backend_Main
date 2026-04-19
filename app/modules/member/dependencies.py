@@ -11,15 +11,16 @@ from app.modules.member.models import Member
 from app.modules.member.repository import MemberRepository
 from app.modules.member.service import MemberService
 from app.shared.enums import MemberRole
+from app.shared.storage.oci_object_storage import OCIObjectStorageClientDep
 
 
 #전체 흐름
 #Client -> HTTP 요청 -> Router -> Service -> Repository -> DB
 
 #MemberService를 모든 Member api 함수들에게 의존성 주입을 하기 위한 과정
-def get_member_service(session: DbSessionDep) -> MemberService:
+def get_member_service(session: DbSessionDep, storage: OCIObjectStorageClientDep) -> MemberService:
     repository = MemberRepository(session)
-    return MemberService(session, repository)
+    return MemberService(session, repository, storage)
 
 #get_member_service() 실행하고 MemberService 만들어서 service에 넣어줘
 MemberServiceDep = Annotated[MemberService, Depends(get_member_service)]

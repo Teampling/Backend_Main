@@ -26,12 +26,11 @@
         document.addEventListener('DOMContentLoaded', () => {
             const navLinks = document.getElementById('nav-links');
             const token = localStorage.getItem('access_token');
-            const userName = localStorage.getItem('user_name');
-            const userNickname = localStorage.getItem('user_nickname');
+            const userUsername = localStorage.getItem('user_username');
             const userProfile = localStorage.getItem('user_profile');
 
             if (token) {
-                const displayName = userNickname;
+                const displayName = userUsername || '사용자';
                 
                 // 프로필 이미지가 있으면 해당 이미지, 없으면 기본 아이콘 사용
                 const profileImg = userProfile && userProfile !== 'null' 

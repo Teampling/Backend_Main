@@ -62,44 +62,16 @@ class Member(BaseModel, table=True):
         description="회원 비밀번호"
     )
 
-    name: str = Field(
-        nullable=False,
-        description="회원 이름"
-    )
-
-    birth: date = Field(
-        nullable=False,
-        description="회원 생년월일"
-    )
-
-    gender: bool | None = Field(
+    username: str | None = Field(
         default=None,
         nullable=True,
-        description="회원 성별(0: 남, 1: 여, null: 성별을 밝히고 싶지 않음)"
-    )
-
-    phone_num: str = Field(
-        max_length=20,
-        nullable=False,
-        description="회원 전화번호"
-    )
-
-    nickname: str | None = Field(
-        default=None,
-        nullable=True,
-        description="회원 닉네임"
+        description="회원 사용자 이름"
     )
 
     organization: str | None = Field(
         default=None,
         nullable=True,
         description="회원 소속"
-    )
-
-    dept: str | None = Field(
-        default=None,
-        nullable=True,
-        description="회원 부서"
     )
 
     profile_url: str | None = Field(

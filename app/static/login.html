@@ -70,8 +70,7 @@
                     }
                 }).then(handleResponse);
 
-                localStorage.setItem('user_name', userResult.data.name);
-                localStorage.setItem('user_nickname', userResult.data.nickname || '');
+                localStorage.setItem('user_username', userResult.data.username);
                 localStorage.setItem('user_profile', userResult.data.profile_url || '');
                 window.location.href = '/';
             } catch (err) {
