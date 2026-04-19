@@ -45,7 +45,7 @@ async def list_projects(
     path="/{project_id}",
     response_model=ApiResponse[ProjectOut],
     summary="프로젝트 단건 조회",
-    description="project ID에 해당하는 멤버의 상세 정보를 조회합니다.",
+    description="project ID에 해당하는 프로젝트의 상세 정보를 조회합니다.",
 )
 async def get_project(
         service: ProjectServiceDep,
@@ -94,7 +94,7 @@ async def update_project(
         data: ProjectUpdateIn,
 ):
     updated = await service.update(
-        target_prject_id=project_id,
+        target_project_id=project_id,
         actor_member_id=current_member.id,
         data=data
     )

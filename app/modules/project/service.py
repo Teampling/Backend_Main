@@ -1,4 +1,3 @@
-from difflib import restore
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
