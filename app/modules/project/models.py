@@ -7,16 +7,17 @@ from sqlmodel import Field, Relationship
 from app.shared.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.modules.team.models import Team
+    from app.modules.resource.models import Member
     from app.modules.resource.models import Resource
     from app.modules.notice.models import Notice
     from app.modules.work.models import Work
     from app.modules.favorite.models import Favorite
 
+# TODO: team, 이미지 컬럼 지우고, leader_id가 아니라 member와 1:n를 해서 leader로 만들기
 class Project(BaseModel, table=True):
     __tablename__ = "projects"
 
-    teams: list["Team"] = Relationship(back_populates="project")
+    leader: "Member" = Relationship(back_populates="projects")
     resources: list["Resource"] = Relationship(back_populates="project")
     notices: list["Notice"] = Relationship(back_populates="project")
     works: list["Work"] = Relationship(back_populates="project")
@@ -30,9 +31,8 @@ class Project(BaseModel, table=True):
     )
 
     leader_id: UUID = Field(
-        default_factory=uuid4,
-        nullable=False,
-        description="팀장 고유키"
+        foreign_key="leader.id",
+        description="리더 사용자 고유키"
     )
 
     name: str = Field(
@@ -54,10 +54,4 @@ class Project(BaseModel, table=True):
         default=None,
         nullable=True,
         description="프로젝트 상세설명"
-    )
-
-    img_url: str | None = Field(
-        default=None,
-        nullable=True,
-        description="프로젝트 이미지 url"
     )

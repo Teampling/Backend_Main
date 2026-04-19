@@ -1,0 +1,67 @@
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import HttpUrl
+from sqlmodel import SQLModel, Field
+
+
+class ProjectCreateIn(SQLModel):
+    name: str = Field(description="프로젝트 이름")
+    start_date: datetime = Field(description="프로젝트 시작 일자")
+    end_date: datetime = Field(description="프로젝트 종료 일자")
+    detail: str | None = Field(default=None, description="프로젝트 상세설명")
+    img_url: HttpUrl | None = Field(default=None, description="프로젝트 이미지 url")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "팀플링",
+                "start_date": "2026-02-02",
+                "end_date": "2026-05-02",
+                "detail": "팀플링 프로젝트 입니다.",
+                "img_url": "https://example.com/img.jpg"
+            }
+        }
+    }
+
+class ProjectUpdateIn(SQLModel):
+    name: str = Field(description="프로젝트 이름")
+    start_date: datetime | None = Field(default=None, description="프로젝트 시작 일자")
+    end_date: datetime | None = Field(default=None, description="프로젝트 종료 일자")
+    detail: str | None = Field(default=None, description="프로젝트 상세설명")
+    img_url: HttpUrl | None = Field(default=None, description="프로젝트 이미지 url")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "팀플링",
+                "start_date": "2026-02-02",
+                "end_date": "2026-05-02",
+                "detail": "팀플링 프로젝트 입니다.",
+                "img_url": "https://example.com/img.jpg"
+            }
+        }
+    }
+
+class ProjectOut(SQLModel):
+    id: UUID = Field(description="프로젝트 ID")
+    leader_id: UUID = Field(description="팀장 ID")
+    name: str = Field(description="프로젝트 이름")
+    start_date: datetime = Field(description="프로젝트 시작 일자")
+    end_date: datetime = Field(description="프로젝트 종료 일자")
+    detail: str | None = Field(default=None, description="프로젝트 상세설명")
+    img_url: HttpUrl | None = Field(default=None, description="프로젝트 이미지 url")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "id": "3e1672cf-8d99-4b1c-9b5e-9c3ece11b089",
+                "leader_id": "5g1992cf-0h79-1b5d-8m4k-1v6zin11p019",
+                "name": "팀플링",
+                "start_date": "2026-02-02",
+                "end_date": "2026-05-02",
+                "detail": "팀플링 프로젝트 입니다.",
+                "img_url": "https://example.com/img.jpg"
+            }
+        }
+    }

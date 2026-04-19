@@ -9,6 +9,7 @@ from app.shared.models.base import BaseModel
 from app.shared.enums import MemberRole
 
 if TYPE_CHECKING:
+    from app.modules.resource.models import Project
     from app.modules.resource.models import Resource
     from app.modules.favorite.models import Favorite
 
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 class Member(BaseModel, table=True):
     __tablename__ = "members"
 
+    projects: list["Project"] = Relationship(back_populates="leader")
     resources: list["Resource"] = Relationship(back_populates="member")
     favorites: list["Favorite"] = Relationship(back_populates="member")
 
