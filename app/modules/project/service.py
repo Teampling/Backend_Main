@@ -1,7 +1,7 @@
 from difflib import restore
 from uuid import UUID
 
-from psycopg import IntegrityError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError

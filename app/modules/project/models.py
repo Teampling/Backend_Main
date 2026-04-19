@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from app.modules.work.models import Work
     from app.modules.favorite.models import Favorite
 
-# TODO: team, 이미지 컬럼 지우고, leader_id가 아니라 member와 1:n를 해서 leader로 만들기
 class Project(BaseModel, table=True):
     __tablename__ = "projects"
 
