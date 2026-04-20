@@ -12,6 +12,7 @@ from app.core.middleware import RequestIdMiddleware
 from app.shared.schemas import ApiResponse
 from app.modules.skill.router import router as skill_router
 from app.modules.member.router import router as member_router
+from app.modules.project.router import router as project_router
 from app.modules.skill.models import Skill
 from app.modules.member.models import Member
 from app.modules.favorite.models import Favorite
@@ -19,7 +20,6 @@ from app.modules.notice.models import Notice
 from app.modules.notification.models import Notification
 from app.modules.project.models import Project
 from app.modules.resource.models import Resource
-from app.modules.team.models import Team
 from app.modules.work.models import Work
 
 class HealthOut(BaseModel):
@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
     # Router 등록
     app.include_router(skill_router)
     app.include_router(member_router)
+    app.include_router(project_router)
 
     # Static Files
     app.mount("/static", StaticFiles(directory="app/static"), name="static")

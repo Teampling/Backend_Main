@@ -1,4 +1,3 @@
-from datetime import date
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -7,6 +6,8 @@ from sqlmodel import Field, Relationship
 
 from app.shared.models.base import BaseModel
 from app.shared.enums import MemberRole, ProviderType
+
+from app.modules.project.models import ProjectMember
 
 if TYPE_CHECKING:
     from app.modules.project.models import Project, ProjectMember
@@ -20,7 +21,7 @@ class Member(BaseModel, table=True):
 
     led_projects: list["Project"] = Relationship(back_populates="leader")
     participated_projects: list["Project"] = Relationship(
-        back_populates="members", link_model="ProjectMember"
+        back_populates="members", link_model=ProjectMember
     )
     resources: list["Resource"] = Relationship(back_populates="member")
     favorites: list["Favorite"] = Relationship(back_populates="member")

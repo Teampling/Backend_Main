@@ -1,10 +1,10 @@
-from enum import IntEnum, Enum
+from enum import Enum
 
 
-class WorkState(IntEnum):
-    PLANNED = 0
-    DOING = 1
-    DONE = 2
+class WorkState(str, Enum):
+    PLANNED = "planned"
+    DOING = "doing"
+    DONE = "done"
 
 class ProviderType(str, Enum):
     LOCAL = "local"

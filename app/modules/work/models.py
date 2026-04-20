@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import SmallInteger, Enum, Column
+from sqlalchemy import Enum, Column
 from sqlmodel import Field, Relationship
 
 from app.shared.models.base import BaseModel
@@ -65,24 +65,5 @@ class Work(BaseModel, table=True):
             ),
             nullable=False,
         ),
-        description="작업 상태(0: 진행예정, 1: 진행중, 2: 완료)"
-    )
-
-    priority: int = Field(
-        sa_type=SmallInteger,
-        nullable=False,
-        default=0,
-        description="작업 우선순위(0: 낮음, 1: 중간, 2: 높음)"
-    )
-
-    remark: str | None = Field(
-        default=None,
-        nullable=True,
-        description="작업 참고정보"
-    )
-
-    memo: str | None = Field(
-        default=None,
-        nullable=True,
-        description="작업 메모"
+        description="작업 상태(planned: 진행예정, doing: 진행중, done: 완료)"
     )

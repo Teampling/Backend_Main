@@ -27,7 +27,7 @@ class Project(BaseModel, table=True):
     __tablename__ = "projects"
 
     leader: "Member" = Relationship(
-        back_populates="projects",
+        back_populates="led_projects",
         sa_relationship_kwargs={"primaryjoin": "Project.leader_id == Member.id"}
     )
     members: list["Member"] = Relationship(back_populates="participated_projects", link_model=ProjectMember)
