@@ -4,8 +4,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Path, Query, Depends, status
 
-from app.modules.member.dependencies import CurrentMemberDep
-from app.modules.project.dependencies import ProjectServiceDep
+from app.modules.member.dependencies import CurrentMemberDep, OptionalMemberDep
+from app.modules.project.dependencies import ProjectServiceDep, ProjectLeaderDep
 from app.modules.project.schemas import ProjectOut, ProjectCreateIn, ProjectUpdateIn
 from app.shared.schemas import ApiResponse, PageOut
 
@@ -19,6 +19,7 @@ router = APIRouter(prefix="/project", tags=["Project"])
 )
 async def list_projects(
         service: ProjectServiceDep,
+        current_member: OptionalMemberDep,
         keyword: Annotated[str | None, Query(description="검색 키워드 (이름, 상세설명)", example="팀플")] = None,
         start_after: Annotated[datetime | None, Query(description="조회 시작일 (이 날짜 이후 시작된 프로젝트)")] = None,
         end_before: Annotated[datetime | None, Query(description="조회 종료일 (이 날짜 이전 종료된 프로젝트)")] = None,
@@ -35,11 +36,55 @@ async def list_projects(
         include_deleted=include_deleted,
     )
 
+    items = []
+    for item in result["items"]:
+        p = ProjectOut.model_validate(item)
+        if current_member:
+            p.is_leader = (item.leader_id == current_member.id)
+            p.is_member = await service.is_member(item.id, current_member.id)
+        items.append(p)
+
     return ApiResponse.success(
         code="PROJECT_LIST_FETCHED",
         message="프로젝트 목록 조회 성공",
         data=PageOut[ProjectOut](
-            items=[ProjectOut.model_validate(item) for item in result["items"]],
+            items=items,
+            page=result["page"],
+            size=result["size"],
+            total=result["total"],
+        )
+    )
+
+@router.get(
+    path="/me",
+    response_model=ApiResponse[PageOut[ProjectOut]],
+    summary="내 프로젝트 목록 조회",
+    description="로그인한 사용자가 참여 중이거나 리더인 프로젝트 목록을 조회합니다.",
+)
+async def list_my_projects(
+        current_member: CurrentMemberDep,
+        service: ProjectServiceDep,
+        page: Annotated[int, Query(ge=1, description="페이지 번호")] = 1,
+        size: Annotated[int, Query(ge=1, le=100, description="페이지 크기")] = 50,
+):
+    result = await service.list(
+        member_id=current_member.id,
+        page=page,
+        size=size,
+    )
+
+    items = []
+    for item in result["items"]:
+        p = ProjectOut.model_validate(item)
+        p.is_leader = (item.leader_id == current_member.id)
+        p.is_member = True # 내 프로젝트 목록이므로 항상 True
+        items.append(p)
+
+    return ApiResponse.success(
+        code="MY_PROJECT_LIST_FETCHED",
+        message="내 프로젝트 목록 조회 성공",
+        data=PageOut[ProjectOut](
+            items=items,
             page=result["page"],
             size=result["size"],
             total=result["total"],
@@ -54,14 +99,20 @@ async def list_projects(
 )
 async def get_project(
         service: ProjectServiceDep,
+        current_member: OptionalMemberDep,
         project_id: Annotated[UUID, Path(..., description="조회할 project의 id")],
         include_deleted: Annotated[bool, Query(description="soft delete된 데이터 포함 여부")] = False,
 ):
     project = await service.get(project_id, include_deleted=include_deleted)
+    data = ProjectOut.model_validate(project)
+    if current_member:
+        data.is_leader = (project.leader_id == current_member.id)
+        data.is_member = await service.is_member(project.id, current_member.id)
+        
     return ApiResponse.success(
         code="PROJECT_FETCHED",
         message="Project 조회 성공",
-        data=project
+        data=data
     )
 
 @router.post(
@@ -94,13 +145,11 @@ async def create_project(
 )
 async def update_project(
         service: ProjectServiceDep,
-        current_member: CurrentMemberDep,
-        project_id: Annotated[UUID, Path(description="수정할 project의 ID")],
+        project: ProjectLeaderDep,
         data: ProjectUpdateIn,
 ):
     updated = await service.update(
-        target_project_id=project_id,
-        actor_member_id=current_member.id,
+        project_id=project.id,
         data=data
     )
     return ApiResponse.success(
@@ -117,13 +166,11 @@ async def update_project(
 )
 async def delete_project(
         service: ProjectServiceDep,
-        current_member: CurrentMemberDep,
-        project_id: Annotated[UUID, Path(description="삭제할 프로젝트의 ID")],
+        project: ProjectLeaderDep,
         hard: Annotated[bool, Query(description="true면 hard delete, false면 soft delete, example=False")] = False,
 ):
     await service.delete(
-        target_project_id=project_id,
-        actor_member_id=current_member.id,
+        project_id=project.id,
         hard=hard
     )
     return ApiResponse.success(
@@ -140,9 +187,9 @@ async def delete_project(
 )
 async def restore_project(
         service: ProjectServiceDep,
-        project_id: Annotated[UUID, Path(description="복구할 프로젝트의 ID")],
+        project: ProjectLeaderDep,
 ):
-    restored = await service.restore(project_id)
+    restored = await service.restore(project.id)
     return ApiResponse.success(
         code="PROJECT_RESTORED",
         message="프로젝트 복구 성공",

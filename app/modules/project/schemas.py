@@ -45,6 +45,8 @@ class ProjectOut(SQLModel):
     start_date: datetime = Field(description="프로젝트 시작 일자")
     end_date: datetime = Field(description="프로젝트 종료 일자")
     detail: str | None = Field(default=None, description="프로젝트 상세설명")
+    is_leader: bool = Field(default=False, description="본인이 팀장인지 여부")
+    is_member: bool = Field(default=False, description="본인이 프로젝트 멤버(참여자)인지 여부")
 
     model_config = {
         "json_schema_extra": {
@@ -55,6 +57,8 @@ class ProjectOut(SQLModel):
                 "start_date": "2026-02-02",
                 "end_date": "2026-05-02",
                 "detail": "팀플링 프로젝트 입니다.",
+                "is_leader": True,
+                "is_member": True
             }
         }
     }

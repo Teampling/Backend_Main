@@ -41,6 +41,7 @@ class ProjectService:
     async def list(
         self,
         *,
+        member_id: UUID | None = None,
         keyword: str | None = None,
         start_after: datetime | None = None,
         end_before: datetime | None = None,
@@ -58,6 +59,7 @@ class ProjectService:
         offset = (page - 1) * size
 
         items = await self.repository.list(
+            member_id=member_id,
             keyword=keyword,
             start_after=start_after,
             end_before=end_before,
@@ -66,6 +68,7 @@ class ProjectService:
             include_deleted=include_deleted,
         )
         total = await self.repository.count(
+            member_id=member_id,
             keyword=keyword,
             start_after=start_after,
             end_before=end_before,
@@ -74,13 +77,13 @@ class ProjectService:
 
         return {"items": items, "page": page, "size": size, "total": total}
 
-    async def update(self, target_project_id: UUID, actor_member_id: UUID, data: ProjectUpdateIn) -> Project:
-        project = await self.get(target_project_id, include_deleted=False)
-        if not project:
-            raise AppError.not_found(f"Project[{target_project_id}]")
+    async def is_member(self, project_id: UUID, member_id: UUID) -> bool:
+        return await self.repository.is_member(project_id, member_id)
 
-        if actor_member_id != project.leader_id:
-            raise AppError.forbidden("본인이 리더인 프로젝트만 수정할 수 있습니다.")
+    async def update(self, project_id: UUID, data: ProjectUpdateIn) -> Project:
+        project = await self.get(project_id, include_deleted=False)
+        if not project:
+            raise AppError.not_found(f"Project[{project_id}]")
 
         patch = data.model_dump(
             exclude_unset=True,
@@ -99,15 +102,12 @@ class ProjectService:
             await self.session.rollback()
             raise AppError.bad_request(f"[{project.name}] 수정 중 오류가 발생했습니다.")
 
-    async def delete(self, target_project_id: UUID, actor_member_id: UUID, *, hard: bool = False) -> None:
-        project = await self.get(target_project_id, include_deleted=True)
+    async def delete(self, project_id: UUID, *, hard: bool = False) -> None:
+        project = await self.get(project_id, include_deleted=True)
         if not project:
-            raise AppError.not_found(f"Project[{target_project_id}]")
+            raise AppError.not_found(f"Project[{project_id}]")
 
-        if actor_member_id != project.leader_id:
-            raise AppError.forbidden("본인이 리더인 프로젝트만 삭제할 수 있습니다.")
-
-        member_count = await self.repository.get_member_count(target_project_id)
+        member_count = await self.repository.get_member_count(project_id)
         if member_count > 1:
             raise AppError.bad_request("나를 제외한 팀원이 남아있는 프로젝트는 삭제할 수 없습니다. 모든 팀원을 내보낸 후 삭제해주세요.")
 

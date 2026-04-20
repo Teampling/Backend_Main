@@ -22,6 +22,7 @@ class ProjectRepository:
     async def list(
             self,
             *,
+            member_id: UUID | None = None,
             keyword: str | None = None,
             start_after: datetime | None = None,
             end_before: datetime | None = None,
@@ -30,6 +31,11 @@ class ProjectRepository:
             include_deleted: bool = False,
     ) -> list[Project]:
         stmt = select(Project)
+
+        if member_id:
+            stmt = stmt.join(ProjectMember, Project.id == ProjectMember.project_id, isouter=True).where(
+                (Project.leader_id == member_id) | (ProjectMember.member_id == member_id)
+            )
 
         if keyword:
             stmt = stmt.where(
@@ -46,17 +52,23 @@ class ProjectRepository:
         if not include_deleted:
             stmt = stmt.where(Project.is_deleted == False)
 
-        stmt = stmt.order_by(Project.created_at.desc()).offset(offset).limit(limit)
+        stmt = stmt.group_by(Project.id).order_by(Project.created_at.desc()).offset(offset).limit(limit)
         return (await self.session.scalars(stmt)).all()
 
     async def count(
             self,
             *,
+            member_id: UUID | None = None,
             keyword: str | None = None,
             start_after: datetime | None = None,
             end_before: datetime | None = None,
             include_deleted: bool = False) -> int:
-        stmt = select(func.count()).select_from(Project)
+        stmt = select(func.count(func.distinct(Project.id))).select_from(Project)
+
+        if member_id:
+            stmt = stmt.join(ProjectMember, Project.id == ProjectMember.project_id, isouter=True).where(
+                (Project.leader_id == member_id) | (ProjectMember.member_id == member_id)
+            )
 
         if keyword:
             stmt = stmt.where(
@@ -84,6 +96,25 @@ class ProjectRepository:
 
         stmt = select(func.count()).select_from(ProjectMember).where(ProjectMember.project_id == project_id)
         return int(await self.session.scalar(stmt) or 0)
+
+    async def is_member(self, project_id: UUID, member_id: UUID) -> bool:
+        """
+        사용자가 프로젝트의 리더이거나 멤버인지 확인합니다.
+        """
+        # 리더인지 확인
+        project_stmt = select(Project).where(Project.id == project_id, Project.leader_id == member_id)
+        if await self.session.scalar(project_stmt):
+            return True
+
+        # 멤버인지 확인
+        member_stmt = select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.member_id == member_id
+        )
+        if await self.session.scalar(member_stmt):
+            return True
+
+        return False
 
     async def soft_delete(self, project: Project) -> Project:
         project.is_deleted = True
