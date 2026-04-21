@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>프로젝트 초대 수락 - 팀플링</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .invite-box {
+            text-align: center;
+            padding: 2rem;
+        }
+        .invite-icon {
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">팀플링</a>
+    </header>
+
+    <main>
+        <div class="auth-container">
+            <div id="invite-content" class="invite-box">
+                <span class="invite-icon">✉️</span>
+                <h2>프로젝트 초대</h2>
+                <p style="margin-top: 1rem; color: #495057;">
+                    팀플링 프로젝트에 초대되었습니다.<br>
+                    수락하시겠습니까?
+                </p>
+                
+                <div class="btn-group">
+                    <button onclick="handleInvitation('accept')" class="btn-primary">수락하기</button>
+                    <button onclick="handleInvitation('decline')" class="btn-primary" style="background-color: #6c757d;">거절하기</button>
+                </div>
+            </div>
+
+            <div id="loading" class="hidden invite-box">
+                <p>처리 중입니다...</p>
+            </div>
+
+            <div id="result" class="hidden invite-box">
+                <h2 id="result-title">처리 완료</h2>
+                <p id="result-msg" style="margin-top: 1rem; color: #495057;"></p>
+                <button onclick="location.href='/'" class="btn-primary" style="margin-top: 2rem;">홈으로 이동</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!token) {
+                showResult('오류', '유효하지 않은 초대 링크입니다.');
+                return;
+            }
+
+            const accessToken = localStorage.getItem('access_token');
+            if (!accessToken) {
+                alert('초대를 확인하려면 먼저 로그인이 필요합니다.');
+                // 현재 페이지 정보를 유지하면서 로그인 페이지로 이동
+                location.href = `/static/login.html?redirect=${encodeURIComponent(window.location.href)}`;
+            }
+        });
+
+        async function handleInvitation(action) {
+            const accessToken = localStorage.getItem('access_token');
+            if (!accessToken) return;
+
+            const content = document.getElementById('invite-content');
+            const loading = document.getElementById('loading');
+            
+            content.classList.add('hidden');
+            loading.classList.remove('hidden');
+
+            try {
+                // 이전에 우리가 확인한 API 경로 (/project/invite/accept 또는 decline)
+                const response = await fetch(`/project/invite/${action}?token=${token}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showResult(
+                        action === 'accept' ? '🎉 수락 완료' : '거절 완료', 
+                        action === 'accept' ? '프로젝트 멤버가 되었습니다! 이제 프로젝트를 함께 관리할 수 있습니다.' : '초대를 거절했습니다.'
+                    );
+                } else {
+                    showResult('⚠️ 처리 실패', result.detail || '초대 처리 중 오류가 발생했습니다. 이미 처리된 초대이거나 만료되었을 수 있습니다.');
+                }
+            } catch (error) {
+                showResult('❌ 오류 발생', '서버와 통신 중 문제가 발생했습니다.');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        function showResult(title, message) {
+            document.getElementById('invite-content').classList.add('hidden');
+            document.getElementById('loading').classList.add('hidden');
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.classList.remove('hidden');
+            
+            document.getElementById('result-title').innerText = title;
+            document.getElementById('result-msg').innerText = message;
+        }
+    </script>
+</body>
+</html>

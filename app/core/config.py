@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     # APP
     APP_ENV: str
     APP_NAME: str
+    FRONTEND_URL: str = "http://localhost:3000"
 
     # DATABASE
     POSTGRES_DB: str

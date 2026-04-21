@@ -56,6 +56,10 @@ def create_app() -> FastAPI:
     async def read_html(page: str):
         return FileResponse(f"app/static/{page}.html")
 
+    @app.get("/project/invite/accept")
+    async def invite_accept_page():
+        return FileResponse("app/static/invite-accept.html")
+
     # Middleware
     app.add_middleware(RequestIdMiddleware)
 

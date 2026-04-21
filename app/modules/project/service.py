@@ -1,20 +1,31 @@
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import AppError
-from app.modules.project.models import Project
+from app.modules.member.repository import MemberRepository
+from app.modules.project.models import Project, ProjectInvitation, ProjectMember
 from app.modules.project.repository import ProjectRepository
 from app.modules.project.schemas import ProjectCreateIn, ProjectUpdateIn
+from app.shared.enums import InvitationStatus
+from app.shared.utils.email import send_email
 
 
 class ProjectService:
-    def __init__(self, session: AsyncSession, repository: ProjectRepository):
+    def __init__(
+            self,
+            session: AsyncSession,
+            repository: ProjectRepository,
+            member_repository: MemberRepository
+    ):
         self.session = session
         self.repository = repository
+        self.member_repository = member_repository
 
     async def get(self, project_id: UUID, *, include_deleted: bool = False) -> Project:
         project = await self.repository.get_by_id(project_id, include_deleted=include_deleted)
@@ -149,3 +160,132 @@ class ProjectService:
         except Exception:
             await self.session.rollback()
             raise
+
+    async def list_members(self, project_id: UUID) -> "list[dict[str, Any]]":
+        """
+        프로젝트 멤버 목록을 조회합니다.
+        """
+        project = await self.get(project_id)
+        members_info = await self.repository.get_members_with_info(project_id)
+
+        result = []
+        # 리더 정보 추가
+        leader = await self.member_repository.get_by_id(project.leader_id)
+        if leader:
+            result.append({
+                "member": leader,
+                "is_leader": True,
+                "joined_at": project.created_at # 리더는 생성 시점부터 참여
+            })
+
+        # 나머지 멤버 정보 추가
+        for member, joined_at in members_info:
+            result.append({
+                "member": member,
+                "is_leader": False,
+                "joined_at": joined_at
+            })
+
+        return result
+
+    async def invite_member(self, project_id: UUID, member_id: UUID) -> ProjectInvitation:
+        """
+        특정 회원을 프로젝트에 초대합니다.
+        """
+        project = await self.get(project_id)
+        invitee = await self.member_repository.get_by_id(member_id)
+        if not invitee:
+            raise AppError.not_found(f"회원[{member_id}]을 찾을 수 없습니다.")
+        
+        # 이미 멤버인지 확인
+        if await self.repository.is_member(project_id, invitee.id):
+            raise AppError.bad_request("이미 프로젝트의 멤버입니다.")
+
+        # 초대장 생성
+        token = secrets.token_urlsafe(32)
+        invitation = ProjectInvitation(
+            project_id=project_id,
+            member_id=member_id,
+            token=token,
+            expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+            status=InvitationStatus.PENDING
+        )
+
+        saved = await self.repository.save_invitation(invitation)
+        
+        # 이메일 발송
+        invite_url = f"{settings.FRONTEND_URL}/project/invite/accept?token={token}"
+        subject = f"[Teampling] {project.name} 프로젝트 초대"
+        body = f"{invitee.username}님, {project.name} 프로젝트에 초대되었습니다.\n\n수락하시려면 아래 링크를 클릭하세요:\n{invite_url}"
+        
+        await send_email(subject, invitee.email, body)
+        await self.session.commit()
+        await self.session.refresh(saved)
+        return saved
+
+    async def accept_invitation(self, token: str, current_member_id: UUID) -> ProjectInvitation:
+        """
+        초대를 수락합니다.
+        """
+        invitation = await self.repository.get_invitation_by_token(token)
+        if not invitation or invitation.status != InvitationStatus.PENDING:
+            raise AppError.not_found("유효하지 않은 초대입니다.")
+        
+        if invitation.expires_at < datetime.now(timezone.utc):
+            invitation.status = InvitationStatus.EXPIRED
+            await self.session.commit()
+            raise AppError.bad_request("만료된 초대입니다.")
+        
+        if invitation.member_id != current_member_id:
+            raise AppError.forbidden("본인에게 발송된 초대가 아닙니다.")
+
+        # 이미 멤버인지 다시 확인
+        if not await self.repository.is_member(invitation.project_id, current_member_id):
+            project_member = ProjectMember(
+                project_id=invitation.project_id,
+                member_id=current_member_id
+            )
+            self.session.add(project_member)
+
+        invitation.status = InvitationStatus.ACCEPTED
+        await self.session.commit()
+        await self.session.refresh(invitation)
+        return invitation
+
+    async def decline_invitation(self, token: str, current_member_id: UUID) -> ProjectInvitation:
+        """
+        초대를 거절합니다.
+        """
+        invitation = await self.repository.get_invitation_by_token(token)
+        if not invitation or invitation.status != InvitationStatus.PENDING:
+            raise AppError.not_found("유효하지 않은 초대입니다.")
+        
+        if invitation.member_id != current_member_id:
+            raise AppError.forbidden("본인에게 발송된 초대가 아닙니다.")
+
+        invitation.status = InvitationStatus.DECLINED
+        await self.session.commit()
+        await self.session.refresh(invitation)
+        return invitation
+
+    async def remove_member(self, project_id: UUID, member_id: UUID) -> None:
+        """
+        멤버를 프로젝트에서 퇴출합니다.
+        """
+        project = await self.get(project_id)
+        if member_id == project.leader_id:
+            raise AppError.bad_request("리더는 자신을 퇴출할 수 없습니다.")
+        
+        await self.repository.delete_member(project_id, member_id)
+        await self.session.commit()
+
+    async def leave_project(self, project_id: UUID, member_id: UUID) -> None:
+        """
+        프로젝트에서 자진 탈퇴합니다.
+        """
+        project = await self.get(project_id)
+        if member_id == project.leader_id:
+            raise AppError.bad_request("리더는 프로젝트를 탈퇴할 수 없습니다. 리더 권한을 위임한 후 탈퇴해주세요.")
+        
+        await self.repository.delete_member(project_id, member_id)
+        await self.session.commit()

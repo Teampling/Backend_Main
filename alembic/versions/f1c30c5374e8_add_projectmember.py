@@ -76,4 +76,6 @@ def downgrade() -> None:
                type_=sa.VARCHAR(),
                existing_nullable=False)
     op.drop_table('project_members')
+    providertype_enum.drop(op.get_bind(), checkfirst=True)
+    workstate_enum.drop(op.get_bind(), checkfirst=True)
     # ### end Alembic commands ###

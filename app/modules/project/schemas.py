@@ -1,7 +1,10 @@
 from datetime import datetime
 from uuid import UUID
 
+from pydantic import EmailStr
 from sqlmodel import SQLModel, Field
+
+from app.modules.member.schemas import MemberOut
 
 
 class ProjectCreateIn(SQLModel):
@@ -62,3 +65,26 @@ class ProjectOut(SQLModel):
             }
         }
     }
+
+class ProjectInviteIn(SQLModel):
+    member_id: UUID = Field(description="초대할 회원의 고유 ID")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "member_id": "3e1672cf-8d99-4b1c-9b5e-9c3ece11b089"
+            }
+        }
+    }
+
+class ProjectMemberOut(SQLModel):
+    member: MemberOut = Field(description="멤버 정보")
+    is_leader: bool = Field(description="리더 여부")
+    joined_at: datetime = Field(description="프로젝트 합류 일자")
+
+class ProjectInvitationOut(SQLModel):
+    id: UUID
+    project_id: UUID
+    member_id: UUID
+    status: str
+    expires_at: datetime

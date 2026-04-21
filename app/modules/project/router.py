@@ -5,8 +5,11 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Query, Depends, status
 
 from app.modules.member.dependencies import CurrentMemberDep, OptionalMemberDep
-from app.modules.project.dependencies import ProjectServiceDep, ProjectLeaderDep
-from app.modules.project.schemas import ProjectOut, ProjectCreateIn, ProjectUpdateIn
+from app.modules.project.dependencies import ProjectServiceDep, ProjectLeaderDep, ProjectParticipantDep
+from app.modules.project.schemas import (
+    ProjectOut, ProjectCreateIn, ProjectUpdateIn,
+    ProjectMemberOut, ProjectInviteIn, ProjectInvitationOut
+)
 from app.shared.schemas import ApiResponse, PageOut
 
 router = APIRouter(prefix="/project", tags=["Project"])
@@ -194,4 +197,111 @@ async def restore_project(
         code="PROJECT_RESTORED",
         message="프로젝트 복구 성공",
         data=ProjectOut.model_validate(restored)
+    )
+
+@router.get(
+    path="/{project_id}/members",
+    response_model=ApiResponse[list[ProjectMemberOut]],
+    summary="프로젝트 멤버 목록 조회",
+    description="해당 프로젝트에 참여 중인 모든 멤버 목록을 조회합니다.",
+)
+async def list_project_members(
+        service: ProjectServiceDep,
+        project: ProjectParticipantDep,
+):
+    members = await service.list_members(project.id)
+    return ApiResponse.success(
+        code="PROJECT_MEMBERS_FETCHED",
+        message="프로젝트 멤버 목록 조회 성공",
+        data=[ProjectMemberOut(**m) for m in members]
+    )
+
+@router.post(
+    path="/{project_id}/invite",
+    response_model=ApiResponse[ProjectInvitationOut],
+    summary="프로젝트 멤버 초대",
+    description="이메일을 통해 프로젝트 멤버를 초대합니다.",
+)
+async def invite_project_member(
+        service: ProjectServiceDep,
+        project: ProjectLeaderDep,
+        data: ProjectInviteIn,
+):
+    invitation = await service.invite_member(project.id, data.member_id)
+    return ApiResponse.success(
+        code="PROJECT_MEMBER_INVITED",
+        message="초대장을 발송했습니다.",
+        data=ProjectInvitationOut.model_validate(invitation)
+    )
+
+@router.post(
+    path="/invite/accept",
+    response_model=ApiResponse[ProjectInvitationOut],
+    summary="프로젝트 초대 수락",
+    description="전송된 토큰을 사용하여 프로젝트 초대를 수락합니다.",
+)
+async def accept_project_invitation(
+        service: ProjectServiceDep,
+        current_member: CurrentMemberDep,
+        token: Annotated[str, Query(..., description="초대 토큰")],
+):
+    invitation = await service.accept_invitation(token, current_member.id)
+    return ApiResponse.success(
+        code="PROJECT_INVITATION_ACCEPTED",
+        message="프로젝트 초대를 수락했습니다.",
+        data=ProjectInvitationOut.model_validate(invitation)
+    )
+
+@router.post(
+    path="/invite/decline",
+    response_model=ApiResponse[ProjectInvitationOut],
+    summary="프로젝트 초대 거절",
+    description="전송된 토큰을 사용하여 프로젝트 초대를 거절합니다.",
+)
+async def decline_project_invitation(
+        service: ProjectServiceDep,
+        current_member: CurrentMemberDep,
+        token: Annotated[str, Query(..., description="초대 토큰")],
+):
+    invitation = await service.decline_invitation(token, current_member.id)
+    return ApiResponse.success(
+        code="PROJECT_INVITATION_DECLINED",
+        message="프로젝트 초대를 거절했습니다.",
+        data=ProjectInvitationOut.model_validate(invitation)
+    )
+
+@router.delete(
+    path="/{project_id}/members/{member_id}",
+    response_model=ApiResponse[None],
+    summary="프로젝트 멤버 퇴출",
+    description="프로젝트에서 특정 멤버를 퇴출시킵니다. 리더만 가능합니다.",
+)
+async def remove_project_member(
+        service: ProjectServiceDep,
+        project: ProjectLeaderDep,
+        member_id: Annotated[UUID, Path(..., description="퇴출할 멤버의 ID")],
+):
+    await service.remove_member(project.id, member_id)
+    return ApiResponse.success(
+        code="PROJECT_MEMBER_REMOVED",
+        message="멤버를 퇴출시켰습니다.",
+        data=None
+    )
+
+@router.delete(
+    path="/{project_id}/leave",
+    response_model=ApiResponse[None],
+    summary="프로젝트 자진 탈퇴",
+    description="참여 중인 프로젝트에서 자진 탈퇴합니다.",
+)
+async def leave_project(
+        service: ProjectServiceDep,
+        current_member: CurrentMemberDep,
+        project_id: Annotated[UUID, Path(..., description="탈퇴할 프로젝트의 ID")],
+):
+    await service.leave_project(project_id, current_member.id)
+    return ApiResponse.success(
+        code="PROJECT_LEFT",
+        message="프로젝트에서 탈퇴했습니다.",
+        data=None
     )

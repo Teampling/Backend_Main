@@ -72,7 +72,12 @@
 
                 localStorage.setItem('user_username', userResult.data.username);
                 localStorage.setItem('user_profile', userResult.data.profile_url || '');
-                window.location.href = '/';
+                localStorage.setItem('user_id', userResult.data.id);
+
+                // 리다이렉트 처리
+                const urlParams = new URLSearchParams(window.location.search);
+                const redirect = urlParams.get('redirect');
+                window.location.href = redirect ? decodeURIComponent(redirect) : '/';
             } catch (err) {
                 alert('로그인 실패: ' + err.message);
             }

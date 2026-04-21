@@ -10,8 +10,7 @@
     <header>
         <a href="/" class="logo">팀플링</a>
         <div class="nav-links" id="nav-links">
-            <!-- JavaScript will fill this -->
-            <a href="/login.html" class="login-btn">로그인</a>
+            <a href="/static/login.html" class="login-btn">로그인</a>
         </div>
     </header>
 
@@ -23,32 +22,61 @@
     </main>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const navLinks = document.getElementById('nav-links');
             const token = localStorage.getItem('access_token');
-            const userUsername = localStorage.getItem('user_username');
-            const userProfile = localStorage.getItem('user_profile');
 
             if (token) {
-                const displayName = userUsername || '사용자';
-                
-                // 프로필 이미지가 있으면 해당 이미지, 없으면 기본 아이콘 사용
-                const profileImg = userProfile && userProfile !== 'null' 
-                    ? userProfile 
-                    : 'https://cdn-icons-png.flaticon.com/512/149/149071.png'; // 기본 프로필 이미지
-
-                navLinks.innerHTML = `
-                    <div class="user-profile-info">
-                        <img src="${profileImg}" alt="profile" class="header-profile-img">
-                        <span class="user-nickname">${displayName}</span>
-                        <button onclick="logout()" style="color: #6c757d; font-size: 0.85rem; padding: 0.2rem 0.5rem; border: 1px solid #dee2e6; border-radius: 4px; margin-left: 5px;">로그아웃</button>
-                    </div>
-                `;
+                // 내 정보 최신화
+                try {
+                    const response = await fetch('/members/me', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        const user = result.data;
+                        localStorage.setItem('user_username', user.username);
+                        localStorage.setItem('user_profile', user.profile_url || '');
+                        localStorage.setItem('user_id', user.id);
+                        
+                        renderHeader(user.username, user.profile_url);
+                        
+                        document.getElementById('content').innerHTML = `
+                            <h1>반가워요, ${user.username}님!</h1>
+                            <p>내 정보 > 내 프로젝트 탭에서 프로젝트를 관리해보세요.</p>
+                            <div style="margin-top: 2rem;">
+                                <button class="btn-primary" onclick="location.href='/static/profile.html'" style="width: auto;">내 정보 보러가기</button>
+                            </div>
+                        `;
+                    } else {
+                        // 토큰 만료 등
+                        localStorage.clear();
+                        location.reload();
+                    }
+                } catch (error) {
+                    console.error('내 정보 로드 실패:', error);
+                }
             }
         });
 
+        function renderHeader(username, profileUrl) {
+            const navLinks = document.getElementById('nav-links');
+            const displayName = username || '사용자';
+            const profileImg = profileUrl && profileUrl !== 'null' 
+                ? profileUrl 
+                : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
+            navLinks.innerHTML = `
+                <div class="user-profile-info" onclick="location.href='/static/profile.html'" style="cursor: pointer;">
+                    <img src="${profileImg}" alt="profile" class="header-profile-img">
+                    <span class="user-nickname">${displayName}</span>
+                    <button onclick="event.stopPropagation(); logout()" style="color: #6c757d; font-size: 0.85rem; padding: 0.2rem 0.5rem; border: 1px solid #dee2e6; border-radius: 4px; margin-left: 5px;">로그아웃</button>
+                </div>
+            `;
+        }
+
         function logout() {
-            localStorage.clear(); // 모든 저장 정보 삭제
+            localStorage.clear();
             location.reload();
         }
     </script>

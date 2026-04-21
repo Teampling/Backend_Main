@@ -15,3 +15,10 @@ class ProviderType(str, Enum):
 class MemberRole(str, Enum):
     USER = "user"
     ADMIN = "admin"
+
+class InvitationStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"

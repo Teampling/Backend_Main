@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>내 프로필 - 팀플링</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">팀플링</a>
+        <div class="nav-links" id="nav-links"></div>
+    </header>
+
+    <main>
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('info')">내 정보</div>
+            <div class="tab" onclick="switchTab('projects')">내 프로젝트</div>
+        </div>
+
+        <!-- 내 정보 탭 -->
+        <div id="tab-info" class="tab-content active">
+            <div class="auth-container" style="max-width: 600px;">
+                <div class="flex-center">
+                    <div style="position: relative; cursor: pointer;" onclick="document.getElementById('profile-file-input').click()">
+                        <img id="info-profile-img" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="profile" class="profile-img-large">
+<!--                        <div style="position: absolute; bottom: 15px; right: 0; background: #6f42c1; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">변경</div>-->
+                    </div>
+                    <input type="file" id="profile-file-input" accept="image/*" class="hidden" onchange="previewImage(this)">
+                    <p style="font-size: 0.8rem; color: #6c757d; margin-bottom: 1.5rem;">이미지를 클릭하여 프로필 사진을 변경하세요.</p>
+                </div>
+                <form id="profile-form">
+                    <div class="form-group">
+                        <label>이메일</label>
+                        <input type="text" id="info-email" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label>이름(닉네임)</label>
+                        <input type="text" id="info-username" placeholder="이름을 입력하세요">
+                    </div>
+                    <div class="form-group">
+                        <label>소속</label>
+                        <input type="text" id="info-organization" placeholder="학교나 조직명을 입력하세요">
+                    </div>
+                    <button type="submit" class="btn-primary">정보 수정하기</button>
+                </form>
+                <div style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #eee; text-align: center;">
+                    <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1rem;">팀플링을 더 이상 이용하지 않으시나요?</p>
+                    <button onclick="withdraw()" class="btn-sm btn-outline" style="color: #dc3545;">회원 탈퇴</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 내 프로젝트 탭 -->
+        <div id="tab-projects" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2>참여 중인 프로젝트</h2>
+                <button class="btn-primary" onclick="location.href='/static/project-create.html'" style="width: auto; margin-top: 0;">+ 새 프로젝트</button>
+            </div>
+            <div id="profile-project-list" class="project-grid">
+                <p style="color: #6c757d;">프로젝트를 불러오는 중...</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                location.href = '/static/login.html';
+                return;
+            }
+            await loadProfile(); // 프로필 로드 후 헤더 설정 (최신 정보 반영)
+            setupHeader();
+        });
+
+        function setupHeader() {
+            const navLinks = document.getElementById('nav-links');
+            const displayName = localStorage.getItem('user_username') || '사용자';
+            const profileImg = localStorage.getItem('user_profile') && localStorage.getItem('user_profile') !== 'null'
+                ? localStorage.getItem('user_profile') 
+                : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
+            navLinks.innerHTML = `
+                <div class="user-profile-info" onclick="location.href='/static/profile.html'" style="cursor: pointer;">
+                    <img src="${profileImg}" alt="profile" class="header-profile-img">
+                    <span class="user-nickname">${displayName}</span>
+                    <button onclick="event.stopPropagation(); logout()" style="color: #6c757d; font-size: 0.85rem; padding: 0.2rem 0.5rem; border: 1px solid #dee2e6; border-radius: 4px; margin-left: 5px;">로그아웃</button>
+                </div>
+            `;
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            if (tabName === 'projects') {
+                loadProfileProjects();
+            }
+        }
+
+        async function loadProfile() {
+            const token = localStorage.getItem('access_token');
+            try {
+                // /me 엔드포인트를 사용하여 최신 정보 가져오기
+                const response = await fetch(`/members/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                if (result.data) {
+                    const user = result.data;
+                    document.getElementById('info-email').value = user.email;
+                    document.getElementById('info-username').value = user.username;
+                    document.getElementById('info-organization').value = user.organization || '';
+                    if (user.profile_url) {
+                        document.getElementById('info-profile-img').src = user.profile_url;
+                    }
+                    
+                    // 로컬 스토리지 최신화
+                    localStorage.setItem('user_username', user.username);
+                    localStorage.setItem('user_profile', user.profile_url || '');
+                    localStorage.setItem('user_id', user.id);
+                }
+            } catch (error) {
+                console.error('프로필 로드 실패');
+            }
+        }
+
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('info-profile-img').src = e.target.result;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        document.getElementById('profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = localStorage.getItem('access_token');
+            const userId = localStorage.getItem('user_id');
+            const data = new FormData();
+            data.append('username', document.getElementById('info-username').value);
+            data.append('organization', document.getElementById('info-organization').value);
+            
+            const fileInput = document.getElementById('profile-file-input');
+            if (fileInput.files[0]) {
+                data.append('profile_file', fileInput.files[0]);
+            }
+
+            try {
+                // API에서 Form Data를 기대하므로 맞춰서 전송
+                const response = await fetch(`/members/${userId}`, {
+                    method: 'PATCH',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                        // FormData 전송 시 Content-Type 헤더는 브라우저가 자동으로 설정하게 둠
+                    },
+                    body: data
+                });
+                if (response.ok) {
+                    alert('정보가 수정되었습니다.');
+                    location.reload();
+                } else {
+                    alert('수정 실패');
+                }
+            } catch (error) {
+                alert('오류 발생');
+            }
+        });
+
+        async function loadProfileProjects() {
+            const token = localStorage.getItem('access_token');
+            try {
+                // /project/me 엔드포인트 사용
+                const response = await fetch('/project/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                const container = document.getElementById('profile-project-list');
+                
+                if (result.data && result.data.items.length > 0) {
+                    container.innerHTML = result.data.items.map(p => `
+                        <div class="project-card" onclick="location.href='/static/project-detail.html?id=${p.id}'">
+                            <h3>${p.name}</h3>
+                            <p class="date">${p.start_date.split('T')[0]} ~ ${p.end_date.split('T')[0]}</p>
+                            <p class="leader">👑 ${p.is_leader ? '내가 리더' : '참여 중'}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<p style="color: #6c757d; grid-column: 1/-1; text-align: center; padding: 3rem;">아직 참여 중인 프로젝트가 없습니다.</p>';
+                }
+            } catch (error) {
+                console.error('프로젝트 로드 실패');
+                document.getElementById('profile-project-list').innerHTML = '<p style="color: #dc3545; grid-column: 1/-1; text-align: center;">프로젝트 정보를 불러오지 못했습니다.</p>';
+            }
+        }
+
+        async function withdraw() {
+            if (!confirm('정말로 탈퇴하시겠습니까? 모든 정보가 삭제됩니다.')) return;
+            
+            const token = localStorage.getItem('access_token');
+            const userId = localStorage.getItem('user_id');
+            try {
+                const response = await fetch(`/members/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    alert('탈퇴 처리되었습니다. 이용해주셔서 감사합니다.');
+                    logout();
+                }
+            } catch (error) {
+                alert('탈퇴 처리 중 오류 발생');
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            location.href = '/static/index.html';
+        }
+    </script>
+</body>
+</html>

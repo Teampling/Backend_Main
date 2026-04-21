@@ -5,8 +5,10 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.modules.project.models import Project
+from app.modules.member.models import Member
+from app.modules.project.models import Project, ProjectInvitation
 from app.modules.project.models import ProjectMember
+from app.shared.enums import InvitationStatus
 
 
 class ProjectRepository:
@@ -91,6 +93,48 @@ class ProjectRepository:
         self.session.add(project)
         await self.session.flush()
         return project
+
+    async def get_members_with_info(self, project_id: UUID) -> "list[tuple[Member, datetime]]":
+        """
+        프로젝트 멤버 정보와 합류일을 함께 조회합니다.
+        """
+        stmt = (
+            select(Member, ProjectMember.joined_at)
+            .join(ProjectMember, Member.id == ProjectMember.member_id)
+            .where(ProjectMember.project_id == project_id)
+            .order_by(ProjectMember.joined_at.asc())
+        )
+        result = await self.session.execute(stmt)
+        return result.all()
+
+    async def delete_member(self, project_id: UUID, member_id: UUID) -> None:
+        """
+        프로젝트에서 멤버를 제거합니다.
+        """
+        stmt = select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.member_id == member_id
+        )
+        project_member = await self.session.scalar(stmt)
+        if project_member:
+            await self.session.delete(project_member)
+            await self.session.flush()
+
+    async def save_invitation(self, invitation: ProjectInvitation) -> ProjectInvitation:
+        self.session.add(invitation)
+        await self.session.flush()
+        return invitation
+
+    async def get_invitation_by_token(self, token: str) -> ProjectInvitation | None:
+        stmt = select(ProjectInvitation).where(ProjectInvitation.token == token)
+        return await self.session.scalar(stmt)
+
+    async def get_invitations_by_project(self, project_id: UUID) -> "list[ProjectInvitation]":
+        stmt = select(ProjectInvitation).where(
+            ProjectInvitation.project_id == project_id,
+            ProjectInvitation.status == InvitationStatus.PENDING
+        )
+        return (await self.session.scalars(stmt)).all()
 
     async def get_member_count(self, project_id: UUID) -> int:
 

@@ -6,6 +6,7 @@ from fastapi import Depends, Path
 from app.core.database import DbSessionDep
 from app.core.exceptions import AppError
 from app.modules.member.dependencies import CurrentMemberDep
+from app.modules.member.repository import MemberRepository
 from app.modules.project.models import Project
 from app.modules.project.repository import ProjectRepository
 from app.modules.project.service import ProjectService
@@ -13,7 +14,8 @@ from app.modules.project.service import ProjectService
 
 def get_project_service(session: DbSessionDep) -> ProjectService:
     repository = ProjectRepository(session)
-    return ProjectService(session, repository)
+    member_repository = MemberRepository(session)
+    return ProjectService(session, repository, member_repository)
 
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 

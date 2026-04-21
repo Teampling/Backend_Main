@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>프로젝트 상세 - 팀플링</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">팀플링</a>
+        <div class="nav-links" id="nav-links"></div>
+    </header>
+
+    <main>
+        <div id="project-header" style="margin-bottom: 2rem;">
+            <h1 id="proj-name">프로젝트 로드 중...</h1>
+            <p id="proj-period" style="color: #6c757d;"></p>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('overview')">개요</div>
+            <div class="tab" onclick="switchTab('notice')">공지사항</div>
+            <div class="tab" onclick="switchTab('todo')">할일</div>
+            <div class="tab" onclick="switchTab('resources')">자료실</div>
+            <div id="tab-mgmt-header" class="tab hidden" onclick="switchTab('mgmt')">⚙️ 프로젝트 관리</div>
+        </div>
+
+        <!-- 개요 탭 -->
+        <div id="tab-overview" class="tab-content active">
+            <div class="auth-container" style="max-width: 800px; margin: 0;">
+                <h3 style="margin-bottom: 1rem;">프로젝트 설명</h3>
+                <p id="proj-detail" style="white-space: pre-wrap; margin-bottom: 2rem;"></p>
+                
+                <h3 style="margin-bottom: 1rem;">참여 멤버</h3>
+                <div id="proj-members-list" class="project-grid" style="margin-bottom: 3rem;">
+                    <!-- JS will fill this -->
+                </div>
+
+                <div id="leave-project-section" style="border-top: 1px solid #eee; padding-top: 2rem; text-align: right;">
+                    <p style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.5rem;">프로젝트 활동을 그만하시겠습니까?</p>
+                    <button onclick="leaveProject()" class="btn-sm btn-outline" style="color: #dc3545; border-color: #f8d7da;">프로젝트 탈퇴하기</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 공지사항 탭 (플레이스홀더) -->
+        <div id="tab-notice" class="tab-content">
+            <div class="placeholder-box">
+                <h2>공지사항 기능 준비 중</h2>
+                <p>팀원들과 공유할 중요한 소식을 곧 이곳에서 관리할 수 있습니다.</p>
+            </div>
+        </div>
+
+        <!-- 할일 탭 (플레이스홀더) -->
+        <div id="tab-todo" class="tab-content">
+            <div class="placeholder-box">
+                <h2>할일(작업) 관리 기능 준비 중</h2>
+                <p>프로젝트의 진행 상황을 한눈에 파악할 수 있는 기능이 추가될 예정입니다.</p>
+            </div>
+        </div>
+
+        <!-- 자료실 탭 (플레이스홀더) -->
+        <div id="tab-resources" class="tab-content">
+            <div class="placeholder-box">
+                <h2>자료실 기능 준비 중</h2>
+                <p>중요한 문서와 파일을 안전하게 공유하고 관리하세요.</p>
+            </div>
+        </div>
+
+        <!-- 관리 탭 -->
+        <div id="tab-mgmt" class="tab-content">
+            <div class="auth-container" style="max-width: 1000px; margin: 0;">
+                <section class="mgmt-section" style="border-top: none; padding-top: 0;">
+                    <h3>프로젝트 정보 수정</h3>
+                    <form id="edit-project-form" style="margin-top: 1rem;">
+                        <div class="form-group">
+                            <label>프로젝트 이름</label>
+                            <input type="text" id="edit-proj-name" required>
+                        </div>
+                        <div style="display: flex; gap: 1rem;">
+                            <div class="form-group" style="flex: 1;">
+                                <label>시작일</label>
+                                <input type="date" id="edit-proj-start">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label>종료일</label>
+                                <input type="date" id="edit-proj-end">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>상세 설명</label>
+                            <textarea id="edit-proj-detail" rows="4"></textarea>
+                        </div>
+                        <button type="submit" class="btn-primary" style="width: auto;">변경사항 저장</button>
+                    </form>
+                </section>
+
+                <section class="mgmt-section">
+                    <h3>멤버 관리</h3>
+                    <div class="table-container" style="margin-top: 1rem;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>멤버</th>
+                                    <th>이메일</th>
+                                    <th>역할</th>
+                                    <th>참여일</th>
+                                    <th>관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mgmt-member-table">
+                                <!-- JS will fill this -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="mgmt-section">
+                    <h3>새로운 멤버 초대</h3>
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label>초대할 회원의 이메일</label>
+                        <div class="search-box">
+                            <input type="text" id="member-search-input" placeholder="example@email.com" autocomplete="off">
+                            <div id="search-results" class="search-results hidden"></div>
+                        </div>
+                        <p style="font-size: 0.8rem; color: #6c757d; margin-top: 0.5rem;">이메일을 정확히 입력하면 사용자를 찾을 수 있습니다.</p>
+                    </div>
+                    <div id="selected-invites" class="invite-list">
+                        <!-- Selected users will appear here -->
+                    </div>
+                    <button id="send-invites-btn" class="btn-primary" style="width: auto;" disabled>초대장 보내기</button>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentProjectId = new URLSearchParams(window.location.search).get('id');
+        let selectedUsers = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!currentProjectId) {
+                alert('잘못된 접근입니다.');
+                location.href = '/';
+                return;
+            }
+            await updateMyInfo();
+            setupHeader();
+            loadProjectDetail();
+        });
+
+        async function updateMyInfo() {
+            const token = localStorage.getItem('access_token');
+            if (!token) return;
+            try {
+                const response = await fetch('/members/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    localStorage.setItem('user_username', result.data.username);
+                    localStorage.setItem('user_profile', result.data.profile_url || '');
+                    localStorage.setItem('user_id', result.data.id);
+                }
+            } catch (e) {}
+        }
+
+        function setupHeader() {
+            const navLinks = document.getElementById('nav-links');
+            const displayName = localStorage.getItem('user_username') || '사용자';
+            const profileImg = localStorage.getItem('user_profile') && localStorage.getItem('user_profile') !== 'null'
+                ? localStorage.getItem('user_profile') 
+                : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
+            navLinks.innerHTML = `
+                <div class="user-profile-info" onclick="location.href='/static/profile.html'" style="cursor: pointer;">
+                    <img src="${profileImg}" alt="profile" class="header-profile-img">
+                    <span class="user-nickname">${displayName}</span>
+                    <button onclick="event.stopPropagation(); logout()" style="color: #6c757d; font-size: 0.85rem; padding: 0.2rem 0.5rem; border: 1px solid #dee2e6; border-radius: 4px; margin-left: 5px;">로그아웃</button>
+                </div>
+            `;
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            // 탭 텍스트 기반으로 active 클래스 추가
+            const tabHeader = document.getElementById('tab-mgmt-header');
+            const allTabs = document.querySelectorAll('.tab');
+            allTabs.forEach(t => {
+                if (tabName === 'mgmt' && t.id === 'tab-mgmt-header') t.classList.add('active');
+                else if (tabName === 'overview' && t.innerText === '개요') t.classList.add('active');
+                else if (tabName === 'notice' && t.innerText === '공지사항') t.classList.add('active');
+                else if (tabName === 'todo' && t.innerText === '할일') t.classList.add('active');
+                else if (tabName === 'resources' && t.innerText === '자료실') t.classList.add('active');
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            
+            if (tabName === 'mgmt') {
+                loadMgmtData();
+            }
+        }
+
+        async function loadProjectDetail() {
+            const token = localStorage.getItem('access_token');
+            try {
+                // 프로젝트 정보 로드 - /project
+                const response = await fetch(`/project/${currentProjectId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                const proj = result.data;
+
+                document.getElementById('proj-name').innerText = proj.name;
+                document.getElementById('proj-period').innerText = `${proj.start_date.split('T')[0]} ~ ${proj.end_date.split('T')[0]}`;
+                document.getElementById('proj-detail').innerText = proj.detail || '설명이 없습니다.';
+
+                // 수정 폼 채우기
+                document.getElementById('edit-proj-name').value = proj.name;
+                document.getElementById('edit-proj-start').value = proj.start_date.split('T')[0];
+                document.getElementById('edit-proj-end').value = proj.end_date.split('T')[0];
+                document.getElementById('edit-proj-detail').value = proj.detail || '';
+
+                // 리더면 관리 탭 표시
+                if (proj.is_leader) {
+                    document.getElementById('tab-mgmt-header').classList.remove('hidden');
+                }
+
+                // 멤버 목록 로드
+                const mResponse = await fetch(`/project/${currentProjectId}/members`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const mResult = await mResponse.json();
+                const members = mResult.data;
+
+                const memberGrid = document.getElementById('proj-members-list');
+                memberGrid.innerHTML = members.map(m => `
+                    <div class="user-profile-info" style="padding: 1rem; border: 1px solid #eee; border-radius: 8px;">
+                        <img src="${m.member.profile_url || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}" class="header-profile-img">
+                        <div>
+                            <div style="font-weight: bold;">${m.member.username} ${m.is_leader ? '👑' : ''}</div>
+                            <div style="font-size: 0.8rem; color: #6c757d;">${m.member.organization || ''}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('프로젝트 데이터 로드 실패');
+            }
+        }
+
+        async function loadMgmtData() {
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/project/${currentProjectId}/members`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                const members = result.data;
+
+                const tbody = document.getElementById('mgmt-member-table');
+                tbody.innerHTML = members.map(m => `
+                    <tr>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <img src="${m.member.profile_url || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}" style="width: 24px; height: 24px; border-radius: 50%;">
+                                ${m.member.username}
+                            </div>
+                        </td>
+                        <td>${m.member.email}</td>
+                        <td>${m.is_leader ? '리더' : '팀원'}</td>
+                        <td>${m.joined_at.split('T')[0]}</td>
+                        <td>
+                            ${!m.is_leader ? `<button onclick="removeMember('${m.member.id}')" class="btn-sm btn-danger">내보내기</button>` : '-'}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {}
+        }
+
+        // 프로젝트 정보 수정
+        document.getElementById('edit-project-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = localStorage.getItem('access_token');
+            const data = {
+                name: document.getElementById('edit-proj-name').value,
+                start_date: document.getElementById('edit-proj-start').value,
+                end_date: document.getElementById('edit-proj-end').value,
+                detail: document.getElementById('edit-proj-detail').value
+            };
+
+            try {
+                const response = await fetch(`/project/${currentProjectId}`, {
+                    method: 'PATCH',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (response.ok) {
+                    alert('프로젝트 정보가 수정되었습니다.');
+                    location.reload();
+                } else {
+                    alert('수정 실패');
+                }
+            } catch (e) { alert('오류 발생'); }
+        });
+
+        // 멤버 검색 (이메일 검색 API 활용)
+        const searchInput = document.getElementById('member-search-input');
+        const searchResults = document.getElementById('search-results');
+
+        searchInput.addEventListener('input', async (e) => {
+            const email = e.target.value;
+            if (email.length < 3) {
+                searchResults.classList.add('hidden');
+                return;
+            }
+
+            const token = localStorage.getItem('access_token');
+            try {
+                // 이메일 기반 검색 API 사용
+                const response = await fetch(`/members/search?email=${email}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    const u = result.data;
+
+                    searchResults.innerHTML = `
+                        <div class="search-item" onclick="selectUser('${u.id}', '${u.username}', '${u.email}')">
+                            <img src="${u.profile_url || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}" style="width: 30px; height: 30px; border-radius: 50%;">
+                            <div>
+                                <div style="font-weight: 600;">${u.username}</div>
+                                <div style="font-size: 0.8rem; color: #6c757d;">${u.email}</div>
+                            </div>
+                        </div>
+                    `;
+                    searchResults.classList.remove('hidden');
+                } else {
+                    searchResults.classList.add('hidden');
+                }
+            } catch (e) {
+                searchResults.classList.add('hidden');
+            }
+        });
+
+        function selectUser(id, username, email) {
+            if (selectedUsers.find(u => u.id === id)) return;
+            
+            selectedUsers.push({ id, username, email });
+            renderSelectedUsers();
+            searchInput.value = '';
+            searchResults.classList.add('hidden');
+            document.getElementById('send-invites-btn').disabled = false;
+        }
+
+        function renderSelectedUsers() {
+            const container = document.getElementById('selected-invites');
+            container.innerHTML = selectedUsers.map(u => `
+                <div class="invite-chip">
+                    ${u.username} (${u.email})
+                    <span class="remove" onclick="removeSelectedUser('${u.id}')">×</span>
+                </div>
+            `).join('');
+            document.getElementById('send-invites-btn').disabled = selectedUsers.length === 0;
+        }
+
+        function removeSelectedUser(id) {
+            selectedUsers = selectedUsers.filter(u => u.id !== id);
+            renderSelectedUsers();
+        }
+
+        // 초대 발송
+        document.getElementById('send-invites-btn').addEventListener('click', async () => {
+            const token = localStorage.getItem('access_token');
+            let successCount = 0;
+
+            for (const user of selectedUsers) {
+                try {
+                    const response = await fetch(`/project/${currentProjectId}/invite`, {
+                        method: 'POST',
+                        headers: { 
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ member_id: user.id })
+                    });
+                    if (response.ok) successCount++;
+                } catch (e) {}
+            }
+
+            alert(`${successCount}명에게 초대장을 보냈습니다.`);
+            selectedUsers = [];
+            renderSelectedUsers();
+        });
+
+        async function leaveProject() {
+            if (!confirm('정말로 이 프로젝트에서 탈퇴하시겠습니까?')) return;
+            
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/project/${currentProjectId}/leave`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    alert('프로젝트에서 탈퇴되었습니다.');
+                    location.href = '/static/profile.html';
+                } else {
+                    const err = await response.json();
+                    alert('탈퇴 실패: ' + (err.detail || '리더는 프로젝트를 탈퇴할 수 없습니다.'));
+                }
+            } catch (e) {
+                alert('통신 오류 발생');
+            }
+        }
+
+        async function removeMember(memberId) {
+            if (!confirm('정말로 이 멤버를 프로젝트에서 내보내시겠습니까?')) return;
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/project/${currentProjectId}/members/${memberId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    alert('멤버가 퇴출되었습니다.');
+                    loadMgmtData();
+                    loadProjectDetail();
+                }
+            } catch (e) { alert('실패'); }
+        }
+
+        function logout() {
+            localStorage.clear();
+            location.href = '/static/index.html';
+        }
+    </script>
+</body>
+</html>
