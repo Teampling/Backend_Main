@@ -41,13 +41,42 @@
                         
                         renderHeader(user.username, user.profile_url);
                         
-                        document.getElementById('content').innerHTML = `
-                            <h1>반가워요, ${user.username}님!</h1>
-                            <p>내 정보 > 내 프로젝트 탭에서 프로젝트를 관리해보세요.</p>
-                            <div style="margin-top: 2rem;">
-                                <button class="btn-primary" onclick="location.href='/static/profile.html'" style="width: auto;">내 정보 보러가기</button>
+                        const contentDiv = document.getElementById('content');
+                        contentDiv.classList.remove('welcome-msg');
+                        contentDiv.innerHTML = `
+                            <div class="dashboard">
+                                <section class="dashboard-section">
+                                    <div class="section-header">
+                                        <h2>새 알림</h2>
+                                    </div>
+                                    <div class="placeholder-box" style="padding: 1.5rem; border-style: solid; border-width: 1px; background: #fff; text-align: left;">
+                                        <p>새로운 알림 기능 준비 중입니다.</p>
+                                    </div>
+                                </section>
+
+                                <section class="dashboard-section" style="margin-top: 2rem;">
+                                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                        <h2>내 프로젝트</h2>
+                                        <button class="btn-sm btn-primary" onclick="location.href='/static/project-create.html'" style="width: auto; margin-top: 0;">+ 새 프로젝트</button>
+                                    </div>
+                                    <div id="my-projects-list" class="project-grid">
+                                        <div class="placeholder-box" style="grid-column: 1 / -1; background: #fff; border-style: solid; border-width: 1px; text-align: left;">
+                                            <p>프로젝트를 불러오는 중...</p>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="dashboard-section" style="margin-top: 2rem;">
+                                    <div class="section-header">
+                                        <h2>할 일</h2>
+                                    </div>
+                                    <div class="placeholder-box" style="padding: 1.5rem; border-style: solid; border-width: 1px; background: #fff; text-align: left;">
+                                        <p>할 일 관리 기능 준비 중입니다.</p>
+                                    </div>
+                                </section>
                             </div>
                         `;
+                        loadMyProjects();
                     } else {
                         // 토큰 만료 등
                         localStorage.clear();
@@ -78,6 +107,67 @@
         function logout() {
             localStorage.clear();
             location.reload();
+        }
+
+        async function loadMyProjects() {
+            const token = localStorage.getItem('access_token');
+            const grid = document.getElementById('my-projects-list');
+            try {
+                const response = await fetch('/project/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('Project API Response:', result);
+
+                // 응답 형식에 맞춰 data.items 또는 data 또는 result에서 배열 추출
+                let projects = [];
+                if (result.data && Array.isArray(result.data.items)) {
+                    projects = result.data.items;
+                } else if (Array.isArray(result.data)) {
+                    projects = result.data;
+                } else if (Array.isArray(result)) {
+                    projects = result;
+                } else {
+                    console.error('Unexpected data structure:', result);
+                    throw new Error('데이터 형식이 올바르지 않습니다.');
+                }
+                
+                if (projects.length === 0) {
+                    grid.innerHTML = `
+                        <div class="placeholder-box" style="grid-column: 1 / -1; background: #fff; border-style: solid; border-width: 1px; text-align: left;">
+                            <p>참여 중인 프로젝트가 없습니다. 새로운 프로젝트를 시작해보세요!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                grid.innerHTML = projects.map(p => {
+                    // 날짜 처리 안전하게
+                    const startDate = p.start_date ? p.start_date.split('T')[0] : '미정';
+                    const endDate = p.end_date ? p.end_date.split('T')[0] : '미정';
+                    
+                    return `
+                        <div class="project-card" onclick="location.href='/static/project-detail.html?id=${p.id}'">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                                <h3 style="margin: 0;">${p.name || '이름 없음'}</h3>
+                                ${p.is_leader ? '<span style="font-size: 0.7rem; background: #e9ecef; padding: 2px 6px; border-radius: 4px;">리더</span>' : ''}
+                            </div>
+                            <p class="date">${startDate} ~ ${endDate}</p>
+                            <p style="font-size: 0.9rem; color: #495057; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 2.8rem;">
+                                ${p.detail || '설명이 없습니다.'}
+                            </p>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('loadMyProjects failed:', error);
+                grid.innerHTML = `<p style="color: #dc3545;">데이터를 불러오는 데 실패했습니다. (사유: ${error.message})</p>`;
+            }
         }
     </script>
 </body>

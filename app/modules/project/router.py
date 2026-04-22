@@ -8,7 +8,7 @@ from app.modules.member.dependencies import CurrentMemberDep, OptionalMemberDep
 from app.modules.project.dependencies import ProjectServiceDep, ProjectLeaderDep, ProjectParticipantDep
 from app.modules.project.schemas import (
     ProjectOut, ProjectCreateIn, ProjectUpdateIn,
-    ProjectMemberOut, ProjectInviteIn, ProjectInvitationOut
+    ProjectMemberOut, ProjectInviteIn, ProjectInvitationOut, ProjectTransferLeaderIn
 )
 from app.shared.schemas import ApiResponse, PageOut
 
@@ -304,4 +304,32 @@ async def leave_project(
         code="PROJECT_LEFT",
         message="프로젝트에서 탈퇴했습니다.",
         data=None
+    )
+
+@router.patch(
+    path="/{project_id}/leader",
+    response_model=ApiResponse[ProjectOut],
+    summary="프로젝트 리더 위임",
+    description="현재 프로젝트 리더가 다른 프로젝트 멤버에게 리더 권한을 위임합니다.",
+)
+async def transfer_project_leadership(
+    service: ProjectServiceDep,
+    current_member: CurrentMemberDep,
+    project: ProjectLeaderDep,
+    data: ProjectTransferLeaderIn,
+):
+    updated = await service.transfer_leader(
+        project_id=project.id,
+        actor_member_id=current_member.id,
+        new_leader_member_id=data.member_id,
+    )
+
+    result = ProjectOut.model_validate(updated)
+    result.is_leader = False
+    result.is_member = True
+
+    return ApiResponse.success(
+        code="PROJECT_LEADERSHIP_TRANSFERRED",
+        message="프로젝트 리더를 위임했습니다.",
+        data=result,
     )

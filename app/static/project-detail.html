@@ -20,7 +20,6 @@
 
         <div class="tabs">
             <div class="tab active" onclick="switchTab('overview')">개요</div>
-            <div class="tab" onclick="switchTab('notice')">공지사항</div>
             <div class="tab" onclick="switchTab('todo')">할일</div>
             <div class="tab" onclick="switchTab('resources')">자료실</div>
             <div id="tab-mgmt-header" class="tab hidden" onclick="switchTab('mgmt')">⚙️ 프로젝트 관리</div>
@@ -29,7 +28,7 @@
         <!-- 개요 탭 -->
         <div id="tab-overview" class="tab-content active">
             <div class="auth-container" style="max-width: 800px; margin: 0;">
-                <h3 style="margin-bottom: 1rem;">프로젝트 설명</h3>
+                <h3 style="margin-bottom: 1rem;">프로젝트 상세 정보</h3>
                 <p id="proj-detail" style="white-space: pre-wrap; margin-bottom: 2rem;"></p>
                 
                 <h3 style="margin-bottom: 1rem;">참여 멤버</h3>
@@ -37,18 +36,18 @@
                     <!-- JS will fill this -->
                 </div>
 
+                <h3 style="margin-bottom: 1rem;">최근 공지</h3>
+                <div id="proj-notice-section" style="margin-bottom: 3rem;">
+                    <div class="placeholder-box" style="padding: 2rem;">
+                        <p>현재 등록된 공지사항이 없습니다.</p>
+                        <p style="font-size: 0.85rem; margin-top: 0.5rem;">팀원들과 공유할 중요한 소식을 곧 이곳에서 관리할 수 있습니다.</p>
+                    </div>
+                </div>
+
                 <div id="leave-project-section" style="border-top: 1px solid #eee; padding-top: 2rem; text-align: right;">
                     <p style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.5rem;">프로젝트 활동을 그만하시겠습니까?</p>
                     <button onclick="leaveProject()" class="btn-sm btn-outline" style="color: #dc3545; border-color: #f8d7da;">프로젝트 탈퇴하기</button>
                 </div>
-            </div>
-        </div>
-
-        <!-- 공지사항 탭 (플레이스홀더) -->
-        <div id="tab-notice" class="tab-content">
-            <div class="placeholder-box">
-                <h2>공지사항 기능 준비 중</h2>
-                <p>팀원들과 공유할 중요한 소식을 곧 이곳에서 관리할 수 있습니다.</p>
             </div>
         </div>
 
@@ -192,7 +191,6 @@
             allTabs.forEach(t => {
                 if (tabName === 'mgmt' && t.id === 'tab-mgmt-header') t.classList.add('active');
                 else if (tabName === 'overview' && t.innerText === '개요') t.classList.add('active');
-                else if (tabName === 'notice' && t.innerText === '공지사항') t.classList.add('active');
                 else if (tabName === 'todo' && t.innerText === '할일') t.classList.add('active');
                 else if (tabName === 'resources' && t.innerText === '자료실') t.classList.add('active');
             });
@@ -274,7 +272,12 @@
                         <td>${m.is_leader ? '리더' : '팀원'}</td>
                         <td>${m.joined_at.split('T')[0]}</td>
                         <td>
-                            ${!m.is_leader ? `<button onclick="removeMember('${m.member.id}')" class="btn-sm btn-danger">내보내기</button>` : '-'}
+                            ${!m.is_leader ? `
+                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                    <button onclick="transferLeadership('${m.member.id}', '${m.member.username}')" class="btn-sm btn-outline">리더 위임</button>
+                                    <button onclick="removeMember('${m.member.id}')" class="btn-sm btn-danger">내보내기</button>
+                                </div>
+                            ` : '-'}
                         </td>
                     </tr>
                 `).join('');
@@ -435,6 +438,34 @@
                     loadProjectDetail();
                 }
             } catch (e) { alert('실패'); }
+        }
+
+        async function transferLeadership(memberId, username) {
+            if (!confirm(`정말로 ${username}님에게 리더를 위임하시겠습니까?\n위임 후에는 내가 더 이상 리더가 아닙니다.`)) return;
+
+            const token = localStorage.getItem('access_token');
+
+            try {
+                const response = await fetch(`/project/${currentProjectId}/leader`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ member_id: memberId })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('리더가 위임되었습니다.');
+                    location.reload();
+                } else {
+                    alert('리더 위임 실패: ' + (result.message || result.detail?.message || '알 수 없는 오류'));
+                }
+            } catch (e) {
+                alert('통신 오류 발생');
+            }
         }
 
         function logout() {

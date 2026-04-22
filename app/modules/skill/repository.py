@@ -17,13 +17,15 @@ class SkillRepository:
         stmt = select(Skill).where(Skill.id == skill_id)
         if not include_deleted:
             stmt = stmt.where(Skill.is_deleted == False)  # noqa: E712
-        return await self.session.scalar(stmt)
+        result = await self.session.execute(stmt)
+        return result.scalar()
 
     async def get_by_name(self, name: str, *, include_deleted: bool = False) -> Skill | None:
         stmt = select(Skill).where(Skill.name == name)
         if not include_deleted:
             stmt = stmt.where(Skill.is_deleted == False)  # noqa: E712
-        return await self.session.scalar(stmt)
+        result = await self.session.execute(stmt)
+        return result.scalar()
 
     async def list(
             self,

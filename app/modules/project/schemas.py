@@ -1,7 +1,6 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import EmailStr
 from sqlmodel import SQLModel, Field
 
 from app.modules.member.schemas import MemberOut
@@ -88,3 +87,6 @@ class ProjectInvitationOut(SQLModel):
     member_id: UUID
     status: str
     expires_at: datetime
+
+class ProjectTransferLeaderIn(SQLModel):
+    member_id: UUID = Field(description="새로운 리더가 될 멤버 ID")

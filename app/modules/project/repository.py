@@ -19,7 +19,8 @@ class ProjectRepository:
         query = select(Project).where(Project.id == project_id)
         if not include_deleted:
             query = query.where(Project.is_deleted == False)
-        return await self.session.scalar(query)
+        result = await self.session.execute(query)
+        return result.scalar()
 
     async def list(
             self,
@@ -115,10 +116,10 @@ class ProjectRepository:
             ProjectMember.project_id == project_id,
             ProjectMember.member_id == member_id
         )
-        project_member = await self.session.scalar(stmt)
+        result = await self.session.execute(stmt)
+        project_member = result.scalar()
         if project_member:
             await self.session.delete(project_member)
-            await self.session.flush()
 
     async def save_invitation(self, invitation: ProjectInvitation) -> ProjectInvitation:
         self.session.add(invitation)
@@ -127,7 +128,8 @@ class ProjectRepository:
 
     async def get_invitation_by_token(self, token: str) -> ProjectInvitation | None:
         stmt = select(ProjectInvitation).where(ProjectInvitation.token == token)
-        return await self.session.scalar(stmt)
+        result = await self.session.execute(stmt)
+        return result.scalar()
 
     async def get_invitations_by_project(self, project_id: UUID) -> "list[ProjectInvitation]":
         stmt = select(ProjectInvitation).where(
@@ -147,7 +149,8 @@ class ProjectRepository:
         """
         # 리더인지 확인
         project_stmt = select(Project).where(Project.id == project_id, Project.leader_id == member_id)
-        if await self.session.scalar(project_stmt):
+        result = await self.session.execute(project_stmt)
+        if result.scalar():
             return True
 
         # 멤버인지 확인
@@ -155,7 +158,8 @@ class ProjectRepository:
             ProjectMember.project_id == project_id,
             ProjectMember.member_id == member_id
         )
-        if await self.session.scalar(member_stmt):
+        result = await self.session.execute(member_stmt)
+        if result.scalar():
             return True
 
         return False

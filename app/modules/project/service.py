@@ -289,3 +289,38 @@ class ProjectService:
         
         await self.repository.delete_member(project_id, member_id)
         await self.session.commit()
+
+    async def transfer_leader(
+            self,
+            project_id: UUID,
+            actor_member_id: UUID,
+            new_leader_member_id: UUID,
+    ) -> Project:
+        project = await self.get(project_id, include_deleted=False)
+        if actor_member_id == new_leader_member_id:
+            raise AppError.bad_request("본인에게 리더 권한을 위임할 수 없습니다.")
+
+        new_leader = await self.member_repository.get_by_id(new_leader_member_id)
+        if not new_leader:
+            raise AppError.not_found(f"회원[{new_leader_member_id}]을 찾을 수 없습니다.")
+
+        is_member = await self.repository.is_member(project_id, new_leader_member_id)
+        if not is_member:
+            raise AppError.bad_request("새 리더는 현재 프로젝트 멤버여야 합니다.")
+
+        try:
+            project.leader_id = new_leader_member_id
+            updated = await self.repository.save(project)
+            await self.repository.delete_member(project_id, new_leader_member_id)
+            self.session.add(ProjectMember(project_id=project_id, member_id=actor_member_id))
+            await self.session.commit()
+            await self.session.refresh(updated)
+            return updated
+
+        except IntegrityError:
+            await self.session.rollback()
+            raise AppError.bad_request("리더 권한 위임 중 무결성 오류가 발생했습니다.")
+
+        except Exception:
+            await self.session.rollback()
+            raise

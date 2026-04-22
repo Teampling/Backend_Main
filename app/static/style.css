@@ -416,3 +416,15 @@ th {
     cursor: pointer;
 }
 
+/* Dashboard Styles */
+.dashboard-section h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.section-header {
+    margin-bottom: 1rem;
+}
+

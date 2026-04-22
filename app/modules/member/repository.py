@@ -27,13 +27,15 @@ class MemberRepository:
         if not include_deleted:
             query = query.where(Member.is_deleted == False)
         #scalar= session 기능임, 코드로 만든 쿼리를 DB로 보내 결과값을 받는다
-        return await self.session.scalar(query)
+        result = await self.session.execute(query)
+        return result.scalar()
 
     async def get_by_email(self, email: str, *, include_deleted: bool = False) -> Member | None:
         query = select(Member).where(Member.email == email)
         if not include_deleted:
             query = query.where(Member.is_deleted == False)
-        return await self.session.scalar(query)
+        result = await self.session.execute(query)
+        return result.scalar()
 
     #list() = 회원 데이터 보여주기
     #count() = 회원 총 몇 명인지 알려주기

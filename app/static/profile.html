@@ -188,7 +188,7 @@
                         <div class="project-card" onclick="location.href='/static/project-detail.html?id=${p.id}'">
                             <h3>${p.name}</h3>
                             <p class="date">${p.start_date.split('T')[0]} ~ ${p.end_date.split('T')[0]}</p>
-                            <p class="leader">👑 ${p.is_leader ? '내가 리더' : '참여 중'}</p>
+                            <p class="leader">${p.is_leader ? '👑 내가 리더' : '참여 중'}</p>
                         </div>
                     `).join('');
                 } else {
