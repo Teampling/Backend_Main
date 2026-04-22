@@ -17,14 +17,15 @@ from app.modules.favorite.models import Favorite
 from app.modules.notice.models import Notice
 from app.modules.notification.models import Notification
 from app.modules.project.models import Project
+from app.modules.project.models import ProjectMember
+from app.modules.project.models import ProjectInvitation
 from app.modules.resource.models import Resource
-from app.modules.team.models import Team
 from app.modules.work.models import Work
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", settings.LOCAL_DATABASE_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

@@ -1,6 +1,5 @@
 from uuid import UUID, uuid4
 
-from pydantic import HttpUrl
 from sqlmodel import Field
 
 from app.shared.models.base import BaseModel

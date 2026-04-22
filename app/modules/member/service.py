@@ -40,7 +40,14 @@ class MemberService:
             raise AppError.not_found(f"Member[{member_id}]")
         return member
 
+    async def get_by_email(self, email: str, *, include_deleted: bool = False) -> Member:
+        member = await self.repository.get_by_email(email, include_deleted=include_deleted)
+        if not member:
+            raise AppError.not_found(f"해당 이메일[{email}]을 가진 회원을 찾을 수 없습니다.")
+        return member
+
     #list, count 서비스 부분
+
     #연결: Service(page, size) -> offset 계산 ->
     #-> Repository(offset, limit) -> DB에서 조회
     #사용자 요청을 받아서 repository에 맞게 변환
@@ -230,9 +237,9 @@ class MemberService:
             #refresh 왜 필요할까?
             #DB에서 자동으로 바뀌는 값들이 있음: updated_at, default 값, trigger, DB에서 가공된 값
             #즉, refresh 안 하면 Python 객체는 옛날 값일 수 있음
-            await self.session.refresh(updated) #DB 기준 최신 상태 다시 가져오기
+            await self.session.refresh(updated) # DB 기준 최신 상태 다시 가져오기
 
-            if old_profile_url:
+            if profile_file is not None and old_profile_url:
                 try:
                     old_object_name = self.storage.extract_object_name(old_profile_url)
                     await self.storage.delete_object(old_object_name)
