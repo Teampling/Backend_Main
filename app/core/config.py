@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     # Oracle Cloud Storage
     OCI_USER_OCID: str = ""
     OCI_API_KEY_PATH: str = ""
+    OCI_API_KEY_PEM: str = ""
+    OCI_OBJECT_STORAGE_BUCKET: str = ""
     OCI_FINGERPRINT: str = ""
     OCI_TENANCY_OCID: str = ""
     OCI_REGION: str = ""
