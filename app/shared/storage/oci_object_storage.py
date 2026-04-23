@@ -1,3 +1,4 @@
+import base64
 from io import BytesIO
 from pathlib import Path
 from typing import Annotated
@@ -20,9 +21,11 @@ class OCIObjectStorageClient:
     }
 
     def __init__(self) -> None:
+        key_content = base64.b64decode(settings.OCI_API_KEY_PEM).decode()
+
         config = {
             "user": settings.OCI_USER_OCID,
-            "key_file": settings.OCI_API_KEY_PATH,
+            "key_content": key_content,
             "fingerprint": settings.OCI_FINGERPRINT,
             "tenancy": settings.OCI_TENANCY_OCID,
             "region": settings.OCI_REGION,

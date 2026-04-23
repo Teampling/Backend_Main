@@ -26,6 +26,7 @@ def get_member_service(session: DbSessionDep, storage: OCIObjectStorageClientDep
 MemberServiceDep = Annotated[MemberService, Depends(get_member_service)]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/members/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/members/login", auto_error=False)
 
 async def get_current_member(
         service: MemberServiceDep,
@@ -55,7 +56,23 @@ async def get_current_member(
     except Exception as e:
         raise AppError.unauthorized(f"인증 과정에서 오류가 발생했습니다.: {str(e)}")
 
+async def get_optional_current_member(
+        service: MemberServiceDep,
+        token: Annotated[str | None, Depends(oauth2_scheme_optional)] = None,
+) -> Member | None:
+    if token is None:
+        return None
+    try:
+        payload = decode_token(token)
+        member_id = payload.get("sub")
+        if not member_id:
+            return None
+        return await service.get(UUID(member_id))
+    except Exception:
+        return None
+
 CurrentMemberDep = Annotated[Member, Depends(get_current_member)]
+OptionalMemberDep = Annotated[Member | None, Depends(get_optional_current_member)]
 
 async def get_current_admin(
         current_member: CurrentMemberDep,

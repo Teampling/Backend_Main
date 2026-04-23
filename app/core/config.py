@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     # APP
     APP_ENV: str
     APP_NAME: str
+    FRONTEND_URL: str = "http://localhost:3000"
 
     # DATABASE
     POSTGRES_DB: str
@@ -67,6 +68,8 @@ class Settings(BaseSettings):
     # Oracle Cloud Storage
     OCI_USER_OCID: str = ""
     OCI_API_KEY_PATH: str = ""
+    OCI_API_KEY_PEM: str = ""
+    OCI_OBJECT_STORAGE_BUCKET: str = ""
     OCI_FINGERPRINT: str = ""
     OCI_TENANCY_OCID: str = ""
     OCI_REGION: str = ""

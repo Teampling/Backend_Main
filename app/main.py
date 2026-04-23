@@ -12,6 +12,7 @@ from app.core.middleware import RequestIdMiddleware
 from app.shared.schemas import ApiResponse
 from app.modules.skill.router import router as skill_router
 from app.modules.member.router import router as member_router
+from app.modules.project.router import router as project_router
 from app.modules.skill.models import Skill
 from app.modules.member.models import Member
 from app.modules.favorite.models import Favorite
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
     # Router 등록
     app.include_router(skill_router)
     app.include_router(member_router)
+    app.include_router(project_router)
 
     # Static Files
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -53,6 +55,10 @@ def create_app() -> FastAPI:
     @app.get("/{page}.html")
     async def read_html(page: str):
         return FileResponse(f"app/static/{page}.html")
+
+    @app.get("/project/invite/accept")
+    async def invite_accept_page():
+        return FileResponse("app/static/invite-accept.html")
 
     # Middleware
     app.add_middleware(RequestIdMiddleware)

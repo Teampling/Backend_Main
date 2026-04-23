@@ -1,10 +1,10 @@
-from enum import IntEnum, Enum
+from enum import Enum
 
 
-class WorkState(IntEnum):
-    PLANNED = 0
-    DOING = 1
-    DONE = 2
+class WorkState(str, Enum):
+    PLANNED = "planned"
+    DOING = "doing"
+    DONE = "done"
 
 class ProviderType(str, Enum):
     LOCAL = "local"
@@ -15,3 +15,10 @@ class ProviderType(str, Enum):
 class MemberRole(str, Enum):
     USER = "user"
     ADMIN = "admin"
+
+class InvitationStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"

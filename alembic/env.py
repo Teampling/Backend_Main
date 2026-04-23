@@ -17,6 +17,8 @@ from app.modules.favorite.models import Favorite
 from app.modules.notice.models import Notice
 from app.modules.notification.models import Notification
 from app.modules.project.models import Project
+from app.modules.project.models import ProjectMember
+from app.modules.project.models import ProjectInvitation
 from app.modules.resource.models import Resource
 from app.modules.work.models import Work
 

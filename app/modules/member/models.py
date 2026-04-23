@@ -1,4 +1,3 @@
-from datetime import date
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -6,20 +5,27 @@ from sqlalchemy import Enum, Column
 from sqlmodel import Field, Relationship
 
 from app.shared.models.base import BaseModel
-from app.shared.enums import MemberRole
+from app.shared.enums import MemberRole, ProviderType
+
+from app.modules.project.models import ProjectMember
 
 if TYPE_CHECKING:
-    from app.modules.resource.models import Project
+    from app.modules.project.models import Project, ProjectMember
     from app.modules.resource.models import Resource
     from app.modules.favorite.models import Favorite
+    from app.modules.work.models import Work
 
 #dto랑 Model의 차이점: dto는 table=True가 없음. Model은 있음.
 class Member(BaseModel, table=True):
     __tablename__ = "members"
 
-    projects: list["Project"] = Relationship(back_populates="leader")
+    led_projects: list["Project"] = Relationship(back_populates="leader")
+    participated_projects: list["Project"] = Relationship(
+        back_populates="members", link_model=ProjectMember
+    )
     resources: list["Resource"] = Relationship(back_populates="member")
     favorites: list["Favorite"] = Relationship(back_populates="member")
+    created_works: list["Work"] = Relationship(back_populates="author")
 
     id: UUID = Field(
         default_factory=uuid4,
@@ -40,8 +46,16 @@ class Member(BaseModel, table=True):
         )
     )
 
-    provider: str = Field(
-        nullable=False,
+    provider: ProviderType = Field(
+        default=ProviderType.LOCAL,
+        sa_column=Column(
+            Enum(
+                ProviderType,
+                name="providertype",
+                values_callable=lambda x: [e.value for e in x],
+            ),
+            nullable=False,
+        ),
         description="OAuth2 제공자"
     )
 
@@ -58,7 +72,6 @@ class Member(BaseModel, table=True):
     )
 
     hashed_password: str | None = Field(
-        unique=True,
         default=None,
         nullable=True,
         description="회원 비밀번호"

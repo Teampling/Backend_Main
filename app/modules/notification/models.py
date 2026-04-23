@@ -29,7 +29,7 @@ class Notification(BaseModel, table=True):
         sa_type=SmallInteger,
         nullable=False,
         default=0,
-        description="알림 대상 유형(0: 낮음, 1: 중간, 2: 높음)"
+        description="알림 대상 유형(0: 프로젝트, 1: 작업, 2: 기타)"
     )
 
     target_id: UUID | None = Field(

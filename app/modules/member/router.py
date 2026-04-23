@@ -60,6 +60,24 @@ async def list_members(
     )
 
 @router.get(
+    path="/search",
+    response_model=ApiResponse[MemberOut],
+    summary="이메일로 회원 검색",
+    description="초대를 위해 이메일 주소와 정확히 일치하는 회원을 검색합니다.",
+)
+async def search_member(
+        service: MemberServiceDep,
+        current_member: CurrentMemberDep,
+        email: Annotated[str, Query(..., description="검색할 이메일", example="test@example.com")],
+):
+    member = await service.get_by_email(email)
+    return ApiResponse.success(
+        code="MEMBER_FOUND",
+        message="회원을 찾았습니다.",
+        data=MemberOut.model_validate(member)
+    )
+
+@router.get(
     path="/me",
     response_model=ApiResponse[MemberOut],
     summary="내 정보 조회",
