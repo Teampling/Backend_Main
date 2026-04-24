@@ -13,6 +13,7 @@ from app.shared.schemas import ApiResponse
 from app.modules.skill.router import router as skill_router
 from app.modules.member.router import router as member_router
 from app.modules.project.router import router as project_router
+from app.modules.work.router import work_router, project_work_router
 from app.modules.skill.models import Skill
 from app.modules.member.models import Member
 from app.modules.favorite.models import Favorite
@@ -44,6 +45,8 @@ def create_app() -> FastAPI:
     app.include_router(skill_router)
     app.include_router(member_router)
     app.include_router(project_router)
+    app.include_router(work_router)
+    app.include_router(project_work_router)
 
     # Static Files
     app.mount("/static", StaticFiles(directory="app/static"), name="static")

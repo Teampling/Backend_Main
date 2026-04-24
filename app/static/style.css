@@ -225,6 +225,83 @@ main {
     gap: 1.5rem;
 }
 
+.slider-wrapper {
+    position: relative;
+}
+
+.project-slider {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: calc((100% - 3rem) / 3);
+    gap: 1.5rem;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding: 0.5rem 0.1rem 1.5rem 0.1rem;
+    scroll-snap-type: x mandatory;
+}
+
+.project-slider::-webkit-scrollbar {
+    display: none;
+}
+
+@media (max-width: 992px) {
+    .project-slider {
+        grid-auto-columns: calc((100% - 1.5rem) / 2);
+    }
+}
+
+@media (max-width: 600px) {
+    .project-slider {
+        grid-auto-columns: 100%;
+    }
+}
+
+.project-slider .project-card {
+    width: auto;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+}
+
+.slider-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: all 0.2s;
+    font-size: 1.2rem;
+    color: #6f42c1;
+}
+
+.slider-btn:hover {
+    background: #f8f9fa;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.slider-btn.left {
+    left: -20px;
+}
+
+.slider-btn.right {
+    right: -20px;
+}
+
+@media (max-width: 1240px) {
+    .slider-btn.left { left: 5px; }
+    .slider-btn.right { right: 5px; }
+}
+
 .project-card {
     background: #fff;
     border-radius: 10px;
@@ -428,3 +505,143 @@ th {
     margin-bottom: 1rem;
 }
 
+
+/* Task (Work) Management */
+.task-board {
+    display: flex;
+    gap: 1.5rem;
+    overflow-x: auto;
+    padding: 1rem 0;
+    min-height: 400px;
+}
+
+.task-column {
+    background: #ebedef;
+    border-radius: 8px;
+    min-width: 300px;
+    max-width: 350px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+}
+
+.task-column-header {
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.task-column-header h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #495057;
+}
+
+.task-count {
+    background: #ced4da;
+    color: #495057;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.task-list {
+    padding: 0.75rem;
+    overflow-y: auto;
+    flex-grow: 1;
+    min-height: 50px;
+}
+
+.task-card {
+    background: #fff;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid #dee2e6;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.task-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.task-card h4 {
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+    color: #333;
+}
+
+.task-card p {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.task-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #adb5bd;
+}
+
+.task-card .task-date {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background-color: #fff;
+    padding: 2rem;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 500px;
+    position: relative;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+    margin-bottom: 1.5rem;
+}
+
+.modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #adb5bd;
+}
+
+.modal-close:hover {
+    color: #333;
+}

@@ -59,24 +59,54 @@
                                         <h2>내 프로젝트</h2>
                                         <button class="btn-sm btn-primary" onclick="location.href='/static/project-create.html'" style="width: auto; margin-top: 0;">+ 새 프로젝트</button>
                                     </div>
-                                    <div id="my-projects-list" class="project-grid">
-                                        <div class="placeholder-box" style="grid-column: 1 / -1; background: #fff; border-style: solid; border-width: 1px; text-align: left;">
-                                            <p>프로젝트를 불러오는 중...</p>
+                                    <div class="slider-wrapper">
+                                        <button class="slider-btn left" onclick="scrollSlider('my-projects-list', -1)">&#10094;</button>
+                                        <div id="my-projects-list" class="project-slider">
+                                            <div class="placeholder-box" style="background: #fff; border-style: solid; border-width: 1px; text-align: left; width: 100%; grid-column: 1 / -1;">
+                                                <p>프로젝트를 불러오는 중...</p>
+                                            </div>
                                         </div>
+                                        <button class="slider-btn right" onclick="scrollSlider('my-projects-list', 1)">&#10095;</button>
                                     </div>
                                 </section>
 
                                 <section class="dashboard-section" style="margin-top: 2rem;">
-                                    <div class="section-header">
+                                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                         <h2>할 일</h2>
                                     </div>
-                                    <div class="placeholder-box" style="padding: 1.5rem; border-style: solid; border-width: 1px; background: #fff; text-align: left;">
-                                        <p>할 일 관리 기능 준비 중입니다.</p>
+                                    <div class="task-board">
+                                        <!-- Planned -->
+                                        <div class="task-column" ondragover="allowDrop(event)" ondrop="dropTask(event, 'planned')">
+                                            <div class="task-column-header">
+                                                <h3>시작 전</h3>
+                                                <span id="count-planned" class="task-count">0</span>
+                                            </div>
+                                            <div id="list-planned" class="task-list"></div>
+                                        </div>
+
+                                        <!-- Doing -->
+                                        <div class="task-column" ondragover="allowDrop(event)" ondrop="dropTask(event, 'doing')">
+                                            <div class="task-column-header">
+                                                <h3>진행 중</h3>
+                                                <span id="count-doing" class="task-count">0</span>
+                                            </div>
+                                            <div id="list-doing" class="task-list"></div>
+                                        </div>
+
+                                        <!-- Done -->
+                                        <div class="task-column" ondragover="allowDrop(event)" ondrop="dropTask(event, 'done')">
+                                            <div class="task-column-header">
+                                                <h3>완료</h3>
+                                                <span id="count-done" class="task-count">0</span>
+                                            </div>
+                                            <div id="list-done" class="task-list"></div>
+                                        </div>
                                     </div>
                                 </section>
                             </div>
                         `;
-                        loadMyProjects();
+                        await loadMyProjects();
+                        loadMyTasks();
                     } else {
                         // 토큰 만료 등
                         localStorage.clear();
@@ -109,6 +139,18 @@
             location.reload();
         }
 
+        function scrollSlider(id, direction) {
+            const slider = document.getElementById(id);
+            // 보여지는 영역의 너비만큼 이동 (페이징 효과)
+            const scrollAmount = slider.clientWidth;
+            slider.scrollBy({
+                left: direction * scrollAmount,
+                behavior: 'smooth'
+            });
+        }
+
+        let projectsMap = {};
+
         async function loadMyProjects() {
             const token = localStorage.getItem('access_token');
             const grid = document.getElementById('my-projects-list');
@@ -122,9 +164,7 @@
                 }
 
                 const result = await response.json();
-                console.log('Project API Response:', result);
-
-                // 응답 형식에 맞춰 data.items 또는 data 또는 result에서 배열 추출
+                
                 let projects = [];
                 if (result.data && Array.isArray(result.data.items)) {
                     projects = result.data.items;
@@ -132,14 +172,16 @@
                     projects = result.data;
                 } else if (Array.isArray(result)) {
                     projects = result;
-                } else {
-                    console.error('Unexpected data structure:', result);
-                    throw new Error('데이터 형식이 올바르지 않습니다.');
                 }
                 
+                projectsMap = {};
+                projects.forEach(p => {
+                    projectsMap[p.id] = p.name;
+                });
+
                 if (projects.length === 0) {
                     grid.innerHTML = `
-                        <div class="placeholder-box" style="grid-column: 1 / -1; background: #fff; border-style: solid; border-width: 1px; text-align: left;">
+                        <div class="placeholder-box" style="background: #fff; border-style: solid; border-width: 1px; text-align: left; width: 100%; grid-column: 1 / -1;">
                             <p>참여 중인 프로젝트가 없습니다. 새로운 프로젝트를 시작해보세요!</p>
                         </div>
                     `;
@@ -147,7 +189,6 @@
                 }
 
                 grid.innerHTML = projects.map(p => {
-                    // 날짜 처리 안전하게
                     const startDate = p.start_date ? p.start_date.split('T')[0] : '미정';
                     const endDate = p.end_date ? p.end_date.split('T')[0] : '미정';
                     
@@ -166,9 +207,237 @@
                 }).join('');
             } catch (error) {
                 console.error('loadMyProjects failed:', error);
-                grid.innerHTML = `<p style="color: #dc3545;">데이터를 불러오는 데 실패했습니다. (사유: ${error.message})</p>`;
+                grid.innerHTML = `<p style="color: #dc3545;">데이터를 불러오는 데 실패했습니다.</p>`;
             }
         }
+
+        // --- Task Logic ---
+        let myTasks = [];
+
+        async function loadMyTasks() {
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch('/work/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Failed to fetch tasks');
+                const result = await response.json();
+                
+                if (result.data && Array.isArray(result.data.items)) {
+                    myTasks = result.data.items;
+                } else {
+                    myTasks = [];
+                }
+                renderTasks();
+            } catch (e) {
+                console.error('Task 로드 실패', e);
+                const states = ['planned', 'doing', 'done'];
+                states.forEach(state => {
+                    document.getElementById(`list-${state}`).innerHTML = '<p style="font-size: 0.8rem; color: #dc3545; text-align: center; margin-top: 1rem;">로딩 실패</p>';
+                });
+            }
+        }
+
+        function renderTasks() {
+            const states = ['planned', 'doing', 'done'];
+            states.forEach(state => {
+                const listEl = document.getElementById(`list-${state}`);
+                const countEl = document.getElementById(`count-${state}`);
+                const tasks = myTasks.filter(t => t.state === state);
+                
+                countEl.innerText = tasks.length;
+                listEl.innerHTML = tasks.map(t => `
+                    <div class="task-card" 
+                         draggable="true" 
+                         ondragstart="dragTask(event, '${t.id}')"
+                         onclick="openTaskModal('${t.id}')">
+                        <div style="font-size: 0.7rem; color: #6f42c1; font-weight: bold; margin-bottom: 0.3rem;">
+                            ${projectsMap[t.project_id] || '알 수 없는 프로젝트'}
+                        </div>
+                        <h4>${t.title}</h4>
+                        <p>${t.detail || ''}</p>
+                        <div class="task-card-footer">
+                            <div class="task-date">📅 ${t.end_date.split('T')[0]} 까지</div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                if (tasks.length === 0) {
+                    listEl.innerHTML = '<p style="font-size: 0.8rem; color: #adb5bd; text-align: center; margin-top: 1rem;">작업이 없습니다.</p>';
+                }
+            });
+        }
+
+        function dragTask(event, taskId) {
+            event.dataTransfer.setData("taskId", taskId);
+            setTimeout(() => {
+                event.target.style.opacity = '0.5';
+            }, 0);
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        async function dropTask(event, newState) {
+            event.preventDefault();
+            const taskId = event.dataTransfer.getData("taskId");
+            const task = myTasks.find(t => t.id === taskId);
+            
+            document.querySelectorAll('.task-card').forEach(el => el.style.opacity = '1');
+
+            if (task && task.state !== newState) {
+                const token = localStorage.getItem('access_token');
+                try {
+                    const response = await fetch(`/project/${task.project_id}/work/${taskId}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ state: newState })
+                    });
+
+                    if (response.ok) {
+                        loadMyTasks();
+                    } else {
+                        const err = await response.json();
+                        alert('상태 변경 실패: ' + (err.message || '권한이 없거나 오류가 발생했습니다.'));
+                        loadMyTasks();
+                    }
+                } catch (e) {
+                    alert('통신 오류');
+                    loadMyTasks();
+                }
+            }
+        }
+
+        function openTaskModal(taskId) {
+            const modal = document.getElementById('task-modal');
+            const form = document.getElementById('task-form');
+            const task = myTasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            document.getElementById('task-id').value = task.id;
+            document.getElementById('task-project-id').value = task.project_id;
+            document.getElementById('task-title').value = task.title;
+            document.getElementById('task-detail').value = task.detail || '';
+            document.getElementById('task-start').value = task.start_date.split('T')[0];
+            document.getElementById('task-end').value = task.end_date.split('T')[0];
+            document.getElementById('task-state').value = task.state;
+            
+            modal.classList.add('active');
+        }
+
+        function closeTaskModal() {
+            document.getElementById('task-modal').classList.remove('active');
+        }
+
+        async function deleteTask() {
+            const taskId = document.getElementById('task-id').value;
+            const projectId = document.getElementById('task-project-id').value;
+            if (!taskId || !confirm('정말로 이 작업을 삭제하시겠습니까?')) return;
+
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/project/${projectId}/work/${taskId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    closeTaskModal();
+                    loadMyTasks();
+                } else {
+                    alert('삭제 실패');
+                }
+            } catch (e) {
+                alert('오류 발생');
+            }
+        }
+
+        // task-form event listener will be added in DOMContentLoaded or after content is rendered
+        // But since we are replacing contentDiv.innerHTML, we need to re-bind or use delegation
+        document.addEventListener('submit', async (e) => {
+            if (e.target && e.target.id === 'task-form') {
+                e.preventDefault();
+                const token = localStorage.getItem('access_token');
+                const taskId = document.getElementById('task-id').value;
+                const projectId = document.getElementById('task-project-id').value;
+                
+                const data = {
+                    title: document.getElementById('task-title').value,
+                    detail: document.getElementById('task-detail').value,
+                    start_date: document.getElementById('task-start').value + "T00:00:00",
+                    end_date: document.getElementById('task-end').value + "T23:59:59",
+                    state: document.getElementById('task-state').value
+                };
+
+                try {
+                    const response = await fetch(`/project/${projectId}/work/${taskId}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (response.ok) {
+                        closeTaskModal();
+                        loadMyTasks();
+                    } else {
+                        const err = await response.json();
+                        alert('저장 실패: ' + (err.message || '오류가 발생했습니다.'));
+                    }
+                } catch (e) {
+                    alert('통신 오류');
+                }
+            }
+        });
     </script>
+
+    <!-- 할 일 수정 모달 (메인 페이지에서는 수정만 가능하도록 구현, 생성은 프로젝트 상세에서) -->
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeTaskModal()">&times;</span>
+            <div class="modal-header">
+                <h2>할 일 수정</h2>
+            </div>
+            <form id="task-form">
+                <input type="hidden" id="task-id">
+                <input type="hidden" id="task-project-id">
+                <div class="form-group">
+                    <label>제목</label>
+                    <input type="text" id="task-title" required placeholder="어떤 일을 해야 하나요?">
+                </div>
+                <div class="form-group">
+                    <label>상세 내용</label>
+                    <textarea id="task-detail" rows="3" placeholder="상세 설명을 입력하세요"></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>시작일</label>
+                        <input type="date" id="task-start" required>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>종료일</label>
+                        <input type="date" id="task-end" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>상태</label>
+                    <select id="task-state">
+                        <option value="planned">시작 전</option>
+                        <option value="doing">진행 중</option>
+                        <option value="done">완료</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <button type="submit" class="btn-primary" style="margin-top: 0;">저장하기</button>
+                    <button type="button" class="btn-danger" style="width: auto;" onclick="deleteTask()">삭제</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 </html>

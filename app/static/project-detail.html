@@ -51,11 +51,40 @@
             </div>
         </div>
 
-        <!-- 할일 탭 (플레이스홀더) -->
+        <!-- 할일 탭 -->
         <div id="tab-todo" class="tab-content">
-            <div class="placeholder-box">
-                <h2>할일(작업) 관리 기능 준비 중</h2>
-                <p>프로젝트의 진행 상황을 한눈에 파악할 수 있는 기능이 추가될 예정입니다.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>할 일 관리</h2>
+                <button class="btn-sm btn-primary" onclick="openTaskModal()" style="width: auto; margin-top: 0;">+ 새 할 일</button>
+            </div>
+            
+            <div class="task-board">
+                <!-- Planned -->
+                <div class="task-column" ondragover="allowDrop(event)" ondrop="dropTask(event, 'planned')">
+                    <div class="task-column-header">
+                        <h3>시작 전</h3>
+                        <span id="count-planned" class="task-count">0</span>
+                    </div>
+                    <div id="list-planned" class="task-list"></div>
+                </div>
+
+                <!-- Doing -->
+                <div class="task-column" ondragover="allowDrop(event)" ondrop="dropTask(event, 'doing')">
+                    <div class="task-column-header">
+                        <h3>진행 중</h3>
+                        <span id="count-doing" class="task-count">0</span>
+                    </div>
+                    <div id="list-doing" class="task-list"></div>
+                </div>
+
+                <!-- Done -->
+                <div class="task-column" ondragover="allowDrop(event)" ondrop="dropTask(event, 'done')">
+                    <div class="task-column-header">
+                        <h3>완료</h3>
+                        <span id="count-done" class="task-count">0</span>
+                    </div>
+                    <div id="list-done" class="task-list"></div>
+                </div>
             </div>
         </div>
 
@@ -134,6 +163,49 @@
         </div>
     </main>
 
+    <!-- 할 일 추가/수정 모달 -->
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeTaskModal()">&times;</span>
+            <div class="modal-header">
+                <h2 id="task-modal-title">새 할 일 추가</h2>
+            </div>
+            <form id="task-form">
+                <input type="hidden" id="task-id">
+                <div class="form-group">
+                    <label>제목</label>
+                    <input type="text" id="task-title" required placeholder="어떤 일을 해야 하나요?">
+                </div>
+                <div class="form-group">
+                    <label>상세 내용</label>
+                    <textarea id="task-detail" rows="3" placeholder="상세 설명을 입력하세요"></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>시작일</label>
+                        <input type="date" id="task-start" required>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>종료일</label>
+                        <input type="date" id="task-end" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>상태</label>
+                    <select id="task-state">
+                        <option value="planned">시작 전</option>
+                        <option value="doing">진행 중</option>
+                        <option value="done">완료</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <button type="submit" class="btn-primary" style="margin-top: 0;">저장하기</button>
+                    <button type="button" id="btn-delete-task" class="btn-danger" style="display: none; width: auto;" onclick="deleteTask()">삭제</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         let currentProjectId = new URLSearchParams(window.location.search).get('id');
         let selectedUsers = [];
@@ -199,6 +271,212 @@
             
             if (tabName === 'mgmt') {
                 loadMgmtData();
+            } else if (tabName === 'todo') {
+                loadTasks();
+            }
+        }
+
+        // --- Task (Work) Management JS ---
+        let projectTasks = [];
+
+        function openTaskModal(taskId = null) {
+            const modal = document.getElementById('task-modal');
+            const form = document.getElementById('task-form');
+            const titleEl = document.getElementById('task-modal-title');
+            const deleteBtn = document.getElementById('btn-delete-task');
+            
+            form.reset();
+            document.getElementById('task-id').value = '';
+            deleteBtn.style.display = 'none';
+
+            if (taskId) {
+                const task = projectTasks.find(t => t.id === taskId);
+                if (task) {
+                    titleEl.innerText = '할 일 수정';
+                    document.getElementById('task-id').value = task.id;
+                    document.getElementById('task-title').value = task.title;
+                    document.getElementById('task-detail').value = task.detail || '';
+                    document.getElementById('task-start').value = task.start_date.split('T')[0];
+                    document.getElementById('task-end').value = task.end_date.split('T')[0];
+                    document.getElementById('task-state').value = task.state;
+                    
+                    // 본인 작업인 경우에만 삭제 버튼 표시 (author_id 비교 가능하면 추가)
+                    const myId = localStorage.getItem('user_id');
+                    if (task.author_id === myId) {
+                        deleteBtn.style.display = 'block';
+                    }
+                }
+            } else {
+                titleEl.innerText = '새 할 일 추가';
+                // 오늘 날짜로 기본값 설정
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('task-start').value = today;
+                document.getElementById('task-end').value = today;
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeTaskModal() {
+            document.getElementById('task-modal').classList.remove('active');
+        }
+
+        async function loadTasks() {
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/project/${currentProjectId}/work`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                projectTasks = result.data.items;
+                renderTasks();
+            } catch (e) {
+                console.error('Task 로드 실패', e);
+            }
+        }
+
+        function renderTasks() {
+            const states = ['planned', 'doing', 'done'];
+            states.forEach(state => {
+                const listEl = document.getElementById(`list-${state}`);
+                const countEl = document.getElementById(`count-${state}`);
+                const tasks = projectTasks.filter(t => t.state === state);
+                
+                countEl.innerText = tasks.length;
+                listEl.innerHTML = tasks.map(t => `
+                    <div class="task-card" 
+                         draggable="true" 
+                         ondragstart="dragTask(event, '${t.id}')"
+                         onclick="openTaskModal('${t.id}')">
+                        <h4>${t.title}</h4>
+                        <p>${t.detail || ''}</p>
+                        <div class="task-card-footer">
+                            <div class="task-date">📅 ${t.end_date.split('T')[0]} 까지</div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                if (tasks.length === 0) {
+                    listEl.innerHTML = '<p style="font-size: 0.8rem; color: #adb5bd; text-align: center; margin-top: 1rem;">작업이 없습니다.</p>';
+                }
+            });
+        }
+
+        // Drag & Drop Handlers
+        function dragTask(event, taskId) {
+            event.dataTransfer.setData("taskId", taskId);
+            // 드래그 중인 카드의 투명도 조절
+            setTimeout(() => {
+                event.target.style.opacity = '0.5';
+            }, 0);
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        async function dropTask(event, newState) {
+            event.preventDefault();
+            const taskId = event.dataTransfer.getData("taskId");
+            const task = projectTasks.find(t => t.id === taskId);
+            
+            // 드래그 완료 후 스타일 초기화
+            document.querySelectorAll('.task-card').forEach(el => el.style.opacity = '1');
+
+            if (task && task.state !== newState) {
+                const token = localStorage.getItem('access_token');
+                try {
+                    const response = await fetch(`/project/${currentProjectId}/work/${taskId}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ state: newState })
+                    });
+
+                    if (response.ok) {
+                        loadTasks(); // 성공 시 목록 갱신
+                    } else {
+                        const err = await response.json();
+                        alert('상태 변경 실패: ' + (err.message || '권한이 없거나 오류가 발생했습니다.'));
+                        loadTasks(); // 실패 시 원래 위치로 복원하기 위해 갱신
+                    }
+                } catch (e) {
+                    alert('통신 오류');
+                    loadTasks();
+                }
+            }
+        }
+
+        document.getElementById('task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = localStorage.getItem('access_token');
+            const taskId = document.getElementById('task-id').value;
+            
+            const data = {
+                project_id: currentProjectId,
+                title: document.getElementById('task-title').value,
+                detail: document.getElementById('task-detail').value,
+                start_date: document.getElementById('task-start').value + "T00:00:00",
+                end_date: document.getElementById('task-end').value + "T23:59:59",
+                state: document.getElementById('task-state').value
+            };
+
+            try {
+                let response;
+                if (taskId) {
+                    // 수정
+                    response = await fetch(`/project/${currentProjectId}/work/${taskId}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    // 생성
+                    response = await fetch(`/project/${currentProjectId}/work`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+                }
+
+                if (response.ok) {
+                    closeTaskModal();
+                    loadTasks();
+                } else {
+                    const err = await response.json();
+                    alert('저장 실패: ' + (err.message || '오류가 발생했습니다.'));
+                }
+            } catch (e) {
+                alert('통신 오류');
+            }
+        });
+
+        async function deleteTask() {
+            const taskId = document.getElementById('task-id').value;
+            if (!taskId || !confirm('정말로 이 작업을 삭제하시겠습니까?')) return;
+
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/project/${currentProjectId}/work/${taskId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    closeTaskModal();
+                    loadTasks();
+                } else {
+                    alert('삭제 실패 (본인 작업만 삭제 가능합니다)');
+                }
+            } catch (e) {
+                alert('오류 발생');
             }
         }
 
