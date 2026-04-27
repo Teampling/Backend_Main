@@ -55,7 +55,14 @@ class NoticeService:
             title=data.title,
             detail=data.detail,
         )
-        return await self.repository.save(notice)
+        try:
+            saved = await self.repository.save(notice)
+            await self.session.commit()
+            await self.session.refresh(saved)
+            return saved
+        except Exception:
+            await self.session.rollback()
+            raise
 
     async def update(self, target_notice_id: UUID, data: NoticeUpdateIn) -> Notice:
         notice = await self.get(target_notice_id)
@@ -65,17 +72,29 @@ class NoticeService:
         if data.detail is not None:
             notice.detail = data.detail
 
-        return await self.repository.save(notice)
+        try:
+            updated = await self.repository.save(notice)
+            await self.session.commit()
+            await self.session.refresh(updated)
+            return updated
+        except Exception:
+            await self.session.rollback()
+            raise
 
     async def delete(self, target_notice_id: UUID, *, hard: bool = False) -> None:
         notice = await self.get(target_notice_id, include_deleted=True)
 
-        if hard:
-            await self.repository.hard_delete(notice)
-        else:
-            if notice.is_deleted:
-                raise AppError.bad_request("이미 삭제된 공지입니다.")
-            await self.repository.soft_delete(notice)
+        try:
+            if hard:
+                await self.repository.hard_delete(notice)
+            else:
+                if notice.is_deleted:
+                    raise AppError.bad_request("이미 삭제된 공지입니다.")
+                await self.repository.soft_delete(notice)
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
 
     async def restore(self, target_notice_id: UUID) -> Notice:
         notice = await self.get(target_notice_id, include_deleted=True)
@@ -86,4 +105,11 @@ class NoticeService:
         notice.is_deleted = False
         notice.deleted_at = None
 
-        return await self.repository.save(notice)
+        try:
+            restored = await self.repository.save(notice)
+            await self.session.commit()
+            await self.session.refresh(restored)
+            return restored
+        except Exception:
+            await self.session.rollback()
+            raise
