@@ -36,11 +36,13 @@
                     <!-- JS will fill this -->
                 </div>
 
-                <h3 style="margin-bottom: 1rem;">최근 공지</h3>
-                <div id="proj-notice-section" style="margin-bottom: 3rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>공지사항</h3>
+                    <button id="btn-create-notice" class="btn-sm btn-primary hidden" onclick="location.href='/static/notice-create.html?project_id=' + currentProjectId" style="width: auto; margin-top: 0;">+ 공지 작성</button>
+                </div>
+                <div id="proj-notice-list" class="notice-list-scroll" style="margin-bottom: 3rem;">
                     <div class="placeholder-box" style="padding: 2rem;">
                         <p>현재 등록된 공지사항이 없습니다.</p>
-                        <p style="font-size: 0.85rem; margin-top: 0.5rem;">팀원들과 공유할 중요한 소식을 곧 이곳에서 관리할 수 있습니다.</p>
                     </div>
                 </div>
 
@@ -209,6 +211,8 @@
     <script>
         let currentProjectId = new URLSearchParams(window.location.search).get('id');
         let selectedUsers = [];
+        let isProjectLeader = false;
+        let projectNotices = [];
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!currentProjectId) {
@@ -273,7 +277,46 @@
                 loadMgmtData();
             } else if (tabName === 'todo') {
                 loadTasks();
+            } else if (tabName === 'overview') {
+                loadNotices();
             }
+        }
+
+        // --- Notice Management JS ---
+        async function loadNotices() {
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/project/${currentProjectId}/notice`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                projectNotices = result.data.items;
+                renderNotices();
+            } catch (e) {
+                console.error('Notice 로드 실패', e);
+            }
+        }
+
+        function renderNotices() {
+            const container = document.getElementById('proj-notice-list');
+            
+            if (projectNotices.length === 0) {
+                container.innerHTML = '<div class="placeholder-box" style="padding: 2rem;"><p>등록된 공지사항이 없습니다.</p></div>';
+                return;
+            }
+
+            const noticeHtml = projectNotices.map(n => `
+                <div class="project-card" style="margin-bottom: 1rem; cursor: pointer; width: 100%; padding: 1.2rem;" 
+                     onclick="location.href='/static/notice-detail.html?project_id=${currentProjectId}&notice_id=${n.id}'">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <h4 style="margin: 0; color: #333;">${n.title}</h4>
+                        <span style="font-size: 0.8rem; color: #adb5bd;">${n.created_at.split('T')[0]}</span>
+                    </div>
+                    <p style="font-size: 0.9rem; color: #6c757d; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin: 0;">${n.detail}</p>
+                </div>
+            `).join('');
+
+            container.innerHTML = noticeHtml;
         }
 
         // --- Task (Work) Management JS ---
@@ -500,10 +543,17 @@
                 document.getElementById('edit-proj-end').value = proj.end_date.split('T')[0];
                 document.getElementById('edit-proj-detail').value = proj.detail || '';
 
-                // 리더면 관리 탭 표시
-                if (proj.is_leader) {
+                // 리더 여부 저장
+                isProjectLeader = proj.is_leader;
+
+                // 리더면 관리 탭 및 공지 작성 버튼 표시
+                if (isProjectLeader) {
                     document.getElementById('tab-mgmt-header').classList.remove('hidden');
+                    document.getElementById('btn-create-notice').classList.remove('hidden');
                 }
+
+                // 최근 공지 로드
+                loadNotices();
 
                 // 멤버 목록 로드
                 const mResponse = await fetch(`/project/${currentProjectId}/members`, {

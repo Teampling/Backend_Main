@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공지사항 작성 - 팀플링</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">팀플링</a>
+        <div class="nav-links" id="nav-links"></div>
+    </header>
+
+    <main>
+        <div class="auth-container" style="max-width: 800px; margin: 0 auto;">
+            <h2 id="page-title">공지사항 작성</h2>
+            <form id="notice-form">
+                <div class="form-group">
+                    <label>제목</label>
+                    <input type="text" id="notice-title" required placeholder="공지 제목을 입력하세요">
+                </div>
+                <div class="form-group">
+                    <label>상세 내용</label>
+                    <textarea id="notice-detail" rows="15" required placeholder="공지할 내용을 상세히 입력하세요"></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="submit" class="btn-primary" style="margin-top: 0;">저장하기</button>
+                    <button type="button" class="btn-outline" onclick="history.back()" style="width: auto;">취소</button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectId = urlParams.get('project_id');
+        const noticeId = urlParams.get('notice_id');
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!projectId) {
+                alert('잘못된 접근입니다.');
+                location.href = '/';
+                return;
+            }
+            setupHeader();
+            if (noticeId) {
+                document.getElementById('page-title').innerText = '공지사항 수정';
+                await loadNoticeData();
+            }
+        });
+
+        function setupHeader() {
+            const navLinks = document.getElementById('nav-links');
+            const displayName = localStorage.getItem('user_username') || '사용자';
+            const profileImg = localStorage.getItem('user_profile') && localStorage.getItem('user_profile') !== 'null'
+                ? localStorage.getItem('user_profile') 
+                : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
+            navLinks.innerHTML = `
+                <div class="user-profile-info" onclick="location.href='/static/profile.html'" style="cursor: pointer;">
+                    <img src="${profileImg}" alt="profile" class="header-profile-img">
+                    <span class="user-nickname">${displayName}</span>
+                </div>
+            `;
+        }
+
+        async function loadNoticeData() {
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/project/${projectId}/notice/${noticeId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    document.getElementById('notice-title').value = result.data.title;
+                    document.getElementById('notice-detail').value = result.data.detail;
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        document.getElementById('notice-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = localStorage.getItem('access_token');
+            const data = {
+                project_id: projectId,
+                title: document.getElementById('notice-title').value,
+                detail: document.getElementById('notice-detail').value
+            };
+
+            try {
+                const method = noticeId ? 'PATCH' : 'POST';
+                const url = noticeId ? `/project/${projectId}/notice/${noticeId}` : `/project/${projectId}/notice`;
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert('저장되었습니다.');
+                    location.href = `/static/project-detail.html?id=${projectId}`;
+                } else {
+                    const err = await response.json();
+                    alert('저장 실패: ' + (err.message || '리더만 가능합니다.'));
+                }
+            } catch (e) { alert('통신 오류'); }
+        });
+    </script>
+</body>
+</html>
