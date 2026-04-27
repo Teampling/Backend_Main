@@ -58,10 +58,22 @@ class Project(BaseModel, table=True):
     )
     members: list["Member"] = Relationship(back_populates="participated_projects", link_model=ProjectMember)
     
-    resources: list["Resource"] = Relationship(back_populates="project")
-    notices: list["Notice"] = Relationship(back_populates="project")
-    works: list["Work"] = Relationship(back_populates="project")
-    favorites: list["Favorite"] = Relationship(back_populates="project")
+    resources: list["Resource"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    notices: list["Notice"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    works: list["Work"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    favorites: list["Favorite"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
     id: UUID = Field(
         default_factory=uuid4,

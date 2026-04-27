@@ -161,6 +161,12 @@
                     </div>
                     <button id="send-invites-btn" class="btn-primary" style="width: auto;" disabled>초대장 보내기</button>
                 </section>
+
+                <section class="mgmt-section" style="border-top: 1px solid #fee2e2; background-color: #fff5f5; padding: 1.5rem; border-radius: 8px;">
+                    <h3 style="color: #dc3545;">위험 구역</h3>
+                    <p style="font-size: 0.85rem; color: #6c757d; margin-top: 0.5rem;">프로젝트를 삭제하면 모든 데이터가 사라지며 복구할 수 없습니다. (단, 팀원이 남아있으면 삭제할 수 없습니다.)</p>
+                    <button onclick="deleteProject()" class="btn-danger" style="width: auto; margin-top: 1rem; background-color: #dc3545;">프로젝트 삭제하기</button>
+                </section>
             </div>
         </div>
     </main>
@@ -731,7 +737,11 @@
         });
 
         async function leaveProject() {
-            if (!confirm('정말로 이 프로젝트에서 탈퇴하시겠습니까?')) return;
+            let msg = '정말로 이 프로젝트에서 탈퇴하시겠습니까?';
+            if (isProjectLeader) {
+                msg = '리더로서 프로젝트를 탈퇴하시겠습니까? (팀원이 없으면 프로젝트가 삭제됩니다.)';
+            }
+            if (!confirm(msg)) return;
             
             const token = localStorage.getItem('access_token');
             try {
@@ -741,11 +751,33 @@
                 });
                 
                 if (response.ok) {
-                    alert('프로젝트에서 탈퇴되었습니다.');
+                    alert('프로젝트에서 탈퇴(또는 삭제)되었습니다.');
                     location.href = '/static/profile.html';
                 } else {
                     const err = await response.json();
-                    alert('탈퇴 실패: ' + (err.detail || '리더는 프로젝트를 탈퇴할 수 없습니다.'));
+                    alert('처리 실패: ' + (err.message || '오류가 발생했습니다.'));
+                }
+            } catch (e) {
+                alert('통신 오류 발생');
+            }
+        }
+
+        async function deleteProject() {
+            if (!confirm('정말로 이 프로젝트를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+            
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/project/${currentProjectId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    alert('프로젝트가 삭제되었습니다.');
+                    location.href = '/static/profile.html';
+                } else {
+                    const err = await response.json();
+                    alert('삭제 실패: ' + (err.message || '팀원이 남아있는 프로젝트는 삭제할 수 없습니다.'));
                 }
             } catch (e) {
                 alert('통신 오류 발생');

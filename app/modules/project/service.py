@@ -282,12 +282,21 @@ class ProjectService:
     async def leave_project(self, project_id: UUID, member_id: UUID) -> None:
         """
         프로젝트에서 자진 탈퇴합니다.
+        리더인 경우, 다른 팀원이 없으면 프로젝트를 삭제하며 탈퇴가 가능합니다.
+        팀원이 남아있으면 리더는 탈퇴할 수 없습니다.
         """
         project = await self.get(project_id)
-        if member_id == project.leader_id:
-            raise AppError.bad_request("리더는 프로젝트를 탈퇴할 수 없습니다. 리더 권한을 위임한 후 탈퇴해주세요.")
         
-        await self.repository.delete_member(project_id, member_id)
+        if member_id == project.leader_id:
+            member_count = await self.repository.get_member_count(project_id)
+            if member_count >= 1:
+                raise AppError.bad_request("팀원이 남아있는 상태에서는 리더가 탈퇴할 수 없습니다. 리더 권한을 위임하거나 모든 팀원을 내보낸 후 다시 시도해주세요.")
+            
+            # 혼자 남은 리더가 나가는 경우 프로젝트 삭제 처리
+            await self.repository.soft_delete(project)
+        else:
+            await self.repository.delete_member(project_id, member_id)
+            
         await self.session.commit()
 
     async def transfer_leader(

@@ -165,8 +165,31 @@ class ProjectRepository:
         return False
 
     async def soft_delete(self, project: Project) -> Project:
+        """
+        프로젝트를 소프트 삭제하고 연관된 하위 리소스(공지, 할일 등)도 함께 소프트 삭제합니다.
+        """
+        from sqlalchemy import update, inspect
+        
+        now = datetime.now(timezone.utc)
         project.is_deleted = True
-        project.deleted_at = datetime.now(timezone.utc)
+        project.deleted_at = now
+
+        # 프로젝트와 연관된 모든 관계(Relationship)를 찾아서 자동으로 소프트 삭제 처리
+        mapper = inspect(Project)
+        for rel in mapper.relationships:
+            # 연관된 모델 클래스 (Notice, Work, Resource 등)
+            related_model = rel.mapper.class_
+            
+            # 모델에 is_deleted와 project_id 컬럼이 모두 있는지 확인 (하위 리소스인지 확인)
+            if hasattr(related_model, "is_deleted") and hasattr(related_model, "project_id"):
+                # 해당 프로젝트의 하위 데이터들을 일괄 업데이트
+                stmt = (
+                    update(related_model)
+                    .where(related_model.project_id == project.id)
+                    .where(related_model.is_deleted == False)
+                    .values(is_deleted=True, deleted_at=now)
+                )
+                await self.session.execute(stmt)
 
         await self.session.flush()
         await self.session.refresh(project)
