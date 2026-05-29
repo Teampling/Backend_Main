@@ -23,7 +23,6 @@ class ConnectionManager:
         self.sub_tasks: dict[UUID, asyncio.Task] = {}
 
     async def connect(self, room_id: UUID, websocket: WebSocket):
-        await websocket.accept()
         if room_id not in self.active_connections:
             self.active_connections[room_id] = set()
             # 해당 방에 대한 첫 연결이면 Redis 구독 시작

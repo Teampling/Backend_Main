@@ -80,6 +80,9 @@ async def chat_websocket(
     token: Annotated[str, Query()],
     chat_service: ChatService = Depends(get_chat_service),
 ):
+    # 핸드쉐이크 먼저 수락
+    await websocket.accept()
+
     # 인증
     try:
         current_member = await get_ws_current_member(token, member_service)
