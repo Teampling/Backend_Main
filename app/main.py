@@ -15,6 +15,7 @@ from app.modules.member.router import router as member_router
 from app.modules.project.router import router as project_router
 from app.modules.work.router import work_router, project_work_router
 from app.modules.notice.router import router as notice_router
+from app.modules.chat.router import router as chat_router
 from app.modules.skill.models import Skill
 from app.modules.member.models import Member
 from app.modules.favorite.models import Favorite
@@ -23,6 +24,7 @@ from app.modules.notification.models import Notification
 from app.modules.project.models import Project
 from app.modules.resource.models import Resource
 from app.modules.work.models import Work
+from app.modules.chat.models import ChatRoom, ChatRoomMember, ChatMessage
 
 class HealthOut(BaseModel):
     status: str = Field(example="ok")
@@ -49,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(work_router)
     app.include_router(project_work_router)
     app.include_router(notice_router)
+    app.include_router(chat_router)
 
     # Static Files
     app.mount("/static", StaticFiles(directory="app/static"), name="static")

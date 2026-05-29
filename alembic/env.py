@@ -21,6 +21,7 @@ from app.modules.project.models import ProjectMember
 from app.modules.project.models import ProjectInvitation
 from app.modules.resource.models import Resource
 from app.modules.work.models import Work
+from app.modules.chat.models import ChatRoom, ChatRoomMember, ChatMessage
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

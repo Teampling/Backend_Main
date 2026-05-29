@@ -22,3 +22,7 @@ class InvitationStatus(str, Enum):
     DECLINED = "declined"
     EXPIRED = "expired"
     CANCELLED = "cancelled"
+
+class ChatRoomType(str, Enum):
+    GROUP = "group"
+    DIRECT = "direct"

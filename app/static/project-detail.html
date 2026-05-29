@@ -22,6 +22,7 @@
             <div class="tab active" onclick="switchTab('overview')">개요</div>
             <div class="tab" onclick="switchTab('todo')">할일</div>
             <div class="tab" onclick="switchTab('resources')">자료실</div>
+            <div class="tab" onclick="switchTab('chat')">채팅</div>
             <div id="tab-mgmt-header" class="tab hidden" onclick="switchTab('mgmt')">⚙️ 프로젝트 관리</div>
         </div>
 
@@ -95,6 +96,30 @@
             <div class="placeholder-box">
                 <h2>자료실 기능 준비 중</h2>
                 <p>중요한 문서와 파일을 안전하게 공유하고 관리하세요.</p>
+            </div>
+        </div>
+
+        <!-- 채팅 탭 -->
+        <div id="tab-chat" class="tab-content">
+            <div class="chat-container">
+                <div class="chat-sidebar">
+                    <div class="chat-sidebar-header">채팅방 목록</div>
+                    <div id="chat-room-list" class="chat-room-list">
+                        <!-- JS will fill this -->
+                    </div>
+                </div>
+                <div class="chat-main">
+                    <div id="chat-header" class="chat-header">채팅방을 선택해주세요</div>
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="placeholder-box" style="border: none; background: transparent;">
+                            <p>대화를 시작하려면 왼쪽 목록에서 방을 선택하세요.</p>
+                        </div>
+                    </div>
+                    <form id="chat-form" class="chat-input-area" style="display: none;">
+                        <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." autocomplete="off">
+                        <button type="submit" id="btn-send-chat">전송</button>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -219,6 +244,9 @@
         let selectedUsers = [];
         let isProjectLeader = false;
         let projectNotices = [];
+        let chatSocket = null;
+        let currentRoomId = null;
+        let chatRooms = [];
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!currentProjectId) {
@@ -228,7 +256,18 @@
             }
             await updateMyInfo();
             setupHeader();
-            loadProjectDetail();
+            await loadProjectDetail();
+
+            // URL 파라미터에 chat_room_id가 있으면 해당 채팅방 열기
+            const urlParams = new URLSearchParams(window.location.search);
+            const autoRoomId = urlParams.get('chat_room_id');
+            if (autoRoomId) {
+                switchTab('chat');
+                // 채팅방 목록이 로드될 때까지 약간 대기 후 선택
+                setTimeout(() => {
+                    selectChatRoom(autoRoomId, '1:1 채팅');
+                }, 500);
+            }
         });
 
         async function updateMyInfo() {
@@ -268,13 +307,13 @@
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             
             // 탭 텍스트 기반으로 active 클래스 추가
-            const tabHeader = document.getElementById('tab-mgmt-header');
             const allTabs = document.querySelectorAll('.tab');
             allTabs.forEach(t => {
                 if (tabName === 'mgmt' && t.id === 'tab-mgmt-header') t.classList.add('active');
                 else if (tabName === 'overview' && t.innerText === '개요') t.classList.add('active');
                 else if (tabName === 'todo' && t.innerText === '할일') t.classList.add('active');
                 else if (tabName === 'resources' && t.innerText === '자료실') t.classList.add('active');
+                else if (tabName === 'chat' && t.innerText === '채팅') t.classList.add('active');
             });
 
             document.getElementById(`tab-${tabName}`).classList.add('active');
@@ -285,6 +324,8 @@
                 loadTasks();
             } else if (tabName === 'overview') {
                 loadNotices();
+            } else if (tabName === 'chat') {
+                loadChatRooms();
             }
         }
 
@@ -570,7 +611,8 @@
 
                 const memberGrid = document.getElementById('proj-members-list');
                 memberGrid.innerHTML = members.map(m => `
-                    <div class="user-profile-info" style="padding: 1rem; border: 1px solid #eee; border-radius: 8px;">
+                    <div class="user-profile-info" style="padding: 1rem; border: 1px solid #eee; border-radius: 8px; cursor: pointer; transition: background 0.2s;" 
+                         onclick="openMemberProfile('${m.member.id}', '${m.member.username}', '${m.member.profile_url || ''}', '${m.member.organization || ''}')">
                         <img src="${m.member.profile_url || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}" class="header-profile-img">
                         <div>
                             <div style="font-weight: bold;">${m.member.username} ${m.is_leader ? '👑' : ''}</div>
@@ -581,6 +623,210 @@
 
             } catch (error) {
                 console.error('프로젝트 데이터 로드 실패');
+            }
+        }
+
+        // --- Chat Management JS ---
+        async function loadChatRooms() {
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/chat/projects/${currentProjectId}/rooms`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                chatRooms = await response.json();
+                renderChatRooms();
+            } catch (e) {
+                console.error('채팅방 로드 실패', e);
+            }
+        }
+
+        function renderChatRooms() {
+            const container = document.getElementById('chat-room-list');
+            if (chatRooms.length === 0) {
+                container.innerHTML = '<p style="padding: 1rem; color: #6c757d; font-size: 0.9rem;">참여 중인 방이 없습니다.</p>';
+                return;
+            }
+
+            // 1. 단체 채팅방을 상단으로 정렬 (group 타입이 앞에 오도록)
+            const sortedRooms = [...chatRooms].sort((a, b) => {
+                if (a.type === 'group' && b.type !== 'group') return -1;
+                if (a.type !== 'group' && b.type === 'group') return 1;
+                return 0;
+            });
+
+            const myId = localStorage.getItem('user_id');
+
+            container.innerHTML = sortedRooms.map(room => {
+                let displayName = room.name || '채팅방';
+                let displayImg = 'https://cdn-icons-png.flaticon.com/512/149/149071.png'; // 기본 이미지
+                let displayIcon = room.type === 'group' ? '👥' : '👤';
+
+                if (room.type === 'direct') {
+                    // 1:1 채팅인 경우 상대방 찾기
+                    const otherMember = room.members.find(m => m.id !== myId);
+                    if (otherMember) {
+                        displayName = otherMember.username;
+                        displayImg = otherMember.profile_url || displayImg;
+                        displayIcon = null; // 이미지로 대체
+                    }
+                }
+
+                return `
+                    <div class="chat-room-item ${currentRoomId === room.id ? 'active' : ''}" onclick="selectChatRoom('${room.id}', '${displayName}')">
+                        <div class="header-profile-img" style="width: 40px; height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #e9ecef; overflow: hidden;">
+                            ${displayIcon ? displayIcon : `<img src="${displayImg}" style="width: 100%; height: 100%; object-fit: cover;">`}
+                        </div>
+                        <div class="chat-room-info" style="flex: 1;">
+                            <h4>${displayName}</h4>
+                            <p>${room.type === 'group' ? '단체 채팅방' : '1:1 채팅'}</p>
+                        </div>
+                        ${room.type === 'direct' ? `
+                            <button onclick="event.stopPropagation(); deleteChatRoom('${room.id}')" 
+                                    style="background: none; border: none; color: #adb5bd; cursor: pointer; padding: 5px; font-size: 1.2rem;">
+                                &times;
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function deleteChatRoom(roomId) {
+            if (!confirm('정말로 이 채팅방을 삭제하시겠습니까? 대화 내용이 모두 사라집니다.')) return;
+            
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/chat/rooms/${roomId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    if (currentRoomId === roomId) {
+                        currentRoomId = null;
+                        if (chatSocket) chatSocket.close();
+                        document.getElementById('chat-header').innerText = '채팅방을 선택해주세요';
+                        document.getElementById('chat-messages').innerHTML = '<div class="placeholder-box" style="border: none; background: transparent;"><p>대화를 시작하려면 왼쪽 목록에서 방을 선택하세요.</p></div>';
+                        document.getElementById('chat-form').style.display = 'none';
+                    }
+                    loadChatRooms(); // 목록 새로고침
+                } else {
+                    alert('삭제 실패');
+                }
+            } catch (e) {
+                alert('통신 오류 발생');
+            }
+        }
+
+        async function selectChatRoom(roomId, roomName) {
+            if (currentRoomId === roomId) return;
+            
+            // 기존 소켓 종료
+            if (chatSocket) {
+                chatSocket.close();
+            }
+
+            currentRoomId = roomId;
+            document.getElementById('chat-header').innerText = roomName;
+            document.getElementById('chat-messages').innerHTML = '<p style="text-align: center; color: #adb5bd; padding: 1rem;">메시지 로딩 중...</p>';
+            document.getElementById('chat-form').style.display = 'flex';
+            
+            renderChatRooms(); // 목록 상태 업데이트 (active)
+            
+            // 1. 메시지 이력 로드
+            await loadChatHistory(roomId);
+            
+            // 2. WebSocket 연결
+            connectWebSocket(roomId);
+        }
+
+        async function loadChatHistory(roomId) {
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/chat/rooms/${roomId}/messages?limit=50`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const messages = await response.json();
+                const container = document.getElementById('chat-messages');
+                container.innerHTML = '';
+                
+                // 역순으로 렌더링 (최신이 위로 오는 API라면 뒤집기 필요)
+                messages.reverse().forEach(msg => {
+                    appendMessage(msg);
+                });
+                
+                scrollToBottom();
+            } catch (e) {
+                console.error('이력 로드 실패', e);
+            }
+        }
+
+        function connectWebSocket(roomId) {
+            const token = localStorage.getItem('access_token');
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/chat/ws/${roomId}?token=${token}`;
+            
+            chatSocket = new WebSocket(wsUrl);
+            
+            chatSocket.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                appendMessage(msg);
+                scrollToBottom();
+            };
+            
+            chatSocket.onclose = () => {
+                console.log('WebSocket disconnected');
+            };
+
+            chatSocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function appendMessage(msg) {
+            const container = document.getElementById('chat-messages');
+            const myId = localStorage.getItem('user_id');
+            const isMine = msg.sender_id === myId;
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${isMine ? 'mine' : 'other'}`;
+            
+            const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            msgDiv.innerHTML = `
+                <div class="message-info">
+                    <span>${msg.sender.username}</span>
+                    <span>${time}</span>
+                </div>
+                <div class="message-bubble">${msg.content}</div>
+            `;
+            
+            container.appendChild(msgDiv);
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chat-messages');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        document.getElementById('chat-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const content = input.value.trim();
+            
+            if (content && chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                chatSocket.send(content);
+                input.value = '';
+            }
+        });
+
+        // --- Member Profile & DM JS ---
+        function openMemberProfile(id, username, profileUrl, org) {
+            const myId = localStorage.getItem('user_id');
+            if (id === myId) {
+                location.href = '/static/profile.html';
+            } else {
+                location.href = `/static/member-detail.html?id=${id}`;
             }
         }
 
