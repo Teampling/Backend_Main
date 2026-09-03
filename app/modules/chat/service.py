@@ -121,13 +121,14 @@ class ChatService:
 
     async def send_message(self, room_id: UUID, sender_id: UUID, content: str) -> ChatMessage:
         """메시지를 DB에 저장하고 반환합니다."""
+        # 삭제된(또는 존재하지 않는) 방인지 먼저 확인 — 멤버십 행이 남아있어도 삭제된 방엔 메시지를 못 쓰게 막는다.
+        room = await self.repository.get_room_by_id(room_id)
+        if not room:
+            raise AppError.not_found("채팅방을 찾을 수 없습니다.")
+
         # 멤버십 확인
         if not await self.repository.is_room_member(room_id, sender_id):
             # 단체 채팅방인 경우 자동 참여 처리 고려 가능하나, 여기서는 에러 처리
-            room = await self.repository.get_room_by_id(room_id)
-            if not room:
-                raise AppError.not_found("채팅방을 찾을 수 없습니다.")
-            
             if room.type == ChatRoomType.GROUP:
                 # 단체방은 프로젝트 멤버면 자동 참여
                 await self.repository.add_member_to_room(room_id, sender_id)
@@ -146,9 +147,14 @@ class ChatService:
 
     async def get_history(self, room_id: UUID, member_id: UUID, limit: int = 50, offset: int = 0):
         """채팅 이력을 조회합니다."""
+        # 삭제된(또는 존재하지 않는) 방이면, 멤버십 행이 남아있어도 이력을 볼 수 없게 막는다.
+        room = await self.repository.get_room_by_id(room_id)
+        if not room:
+            raise AppError.not_found("채팅방을 찾을 수 없습니다.")
+
         if not await self.repository.is_room_member(room_id, member_id):
             raise AppError.forbidden("채팅방 멤버가 아닙니다.")
-        
+
         return await self.repository.get_messages(room_id, limit, offset)
 
     async def list_rooms(self, project_id: UUID, member_id: UUID):
