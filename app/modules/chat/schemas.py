@@ -29,7 +29,6 @@ class ChatRoomCreate(ChatRoomBase):
     pass
 
 class DirectChatRoomCreate(BaseModel):
-    project_id: UUID
     target_member_id: UUID
 
 class ChatRoomRead(ChatRoomBase):

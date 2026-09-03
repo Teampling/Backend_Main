@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_session
 from app.modules.chat.repository import ChatRepository
 from app.modules.chat.service import ChatService
+from app.modules.project.repository import ProjectRepository
 
 async def get_chat_repository(session: AsyncSession = Depends(get_session)) -> ChatRepository:
     return ChatRepository(session)
@@ -11,4 +12,4 @@ async def get_chat_service(
     session: AsyncSession = Depends(get_session),
     repository: ChatRepository = Depends(get_chat_repository)
 ) -> ChatService:
-    return ChatService(session, repository)
+    return ChatService(session, repository, ProjectRepository(session))

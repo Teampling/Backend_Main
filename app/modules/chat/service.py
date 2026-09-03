@@ -9,6 +9,7 @@ from fastapi import WebSocket
 from app.modules.chat.repository import ChatRepository
 from app.modules.chat.models import ChatRoom, ChatMessage
 from app.modules.chat.schemas import ChatMessageRead
+from app.modules.project.repository import ProjectRepository
 from app.shared.enums import ChatRoomType
 from app.core.exceptions import AppError
 from app.core.redis import redis_client
@@ -74,9 +75,10 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 class ChatService:
-    def __init__(self, session: AsyncSession, repository: ChatRepository):
+    def __init__(self, session: AsyncSession, repository: ChatRepository, project_repository: ProjectRepository):
         self.session = session
         self.repository = repository
+        self.project_repository = project_repository
 
     async def get_or_create_group_room(self, project_id: UUID) -> ChatRoom:
         """프로젝트의 단체 채팅방을 조회하거나 없으면 생성합니다."""
@@ -98,6 +100,9 @@ class ChatService:
         if member_a == member_b:
             raise AppError.bad_request("자기 자신과는 대화할 수 없습니다.")
 
+        if not await self.project_repository.is_member(project_id, member_b):
+            raise AppError.bad_request("상대방이 해당 프로젝트의 멤버가 아닙니다.")
+
         room = await self.repository.get_direct_room(project_id, member_a, member_b)
         if not room:
             room = ChatRoom(
@@ -116,13 +121,14 @@ class ChatService:
 
     async def send_message(self, room_id: UUID, sender_id: UUID, content: str) -> ChatMessage:
         """메시지를 DB에 저장하고 반환합니다."""
+        # 삭제된(또는 존재하지 않는) 방인지 먼저 확인 — 멤버십 행이 남아있어도 삭제된 방엔 메시지를 못 쓰게 막는다.
+        room = await self.repository.get_room_by_id(room_id)
+        if not room:
+            raise AppError.not_found("채팅방")
+
         # 멤버십 확인
         if not await self.repository.is_room_member(room_id, sender_id):
             # 단체 채팅방인 경우 자동 참여 처리 고려 가능하나, 여기서는 에러 처리
-            room = await self.repository.get_room_by_id(room_id)
-            if not room:
-                raise AppError.not_found("채팅방을 찾을 수 없습니다.")
-            
             if room.type == ChatRoomType.GROUP:
                 # 단체방은 프로젝트 멤버면 자동 참여
                 await self.repository.add_member_to_room(room_id, sender_id)
@@ -141,9 +147,14 @@ class ChatService:
 
     async def get_history(self, room_id: UUID, member_id: UUID, limit: int = 50, offset: int = 0):
         """채팅 이력을 조회합니다."""
+        # 삭제된(또는 존재하지 않는) 방이면, 멤버십 행이 남아있어도 이력을 볼 수 없게 막는다.
+        room = await self.repository.get_room_by_id(room_id)
+        if not room:
+            raise AppError.not_found("채팅방")
+
         if not await self.repository.is_room_member(room_id, member_id):
             raise AppError.forbidden("채팅방 멤버가 아닙니다.")
-        
+
         return await self.repository.get_messages(room_id, limit, offset)
 
     async def list_rooms(self, project_id: UUID, member_id: UUID):
@@ -163,8 +174,8 @@ class ChatService:
         """채팅방을 삭제합니다."""
         room = await self.repository.get_room_by_id(room_id)
         if not room:
-            raise AppError.not_found("채팅방을 찾을 수 없습니다.")
-        
+            raise AppError.not_found("채팅방")
+
         if room.type == ChatRoomType.GROUP:
             raise AppError.bad_request("단체 채팅방은 삭제할 수 없습니다.")
         

@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlalchemy import Enum, Column
+from sqlalchemy_utc import UtcDateTime
 from sqlmodel import Field, Relationship
 
 from app.shared.models.base import BaseModel
@@ -47,11 +48,13 @@ class Work(BaseModel, table=True):
 
     start_date: datetime = Field(
         nullable=False,
+        sa_type=UtcDateTime,
         description="작업 시작 일자"
     )
 
     end_date: datetime = Field(
         nullable=False,
+        sa_type=UtcDateTime,
         description="작업 종료 일자"
     )
 
