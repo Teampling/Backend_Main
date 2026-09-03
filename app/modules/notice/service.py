@@ -86,6 +86,8 @@ class NoticeService:
 
         try:
             if hard:
+                if not notice.is_deleted:
+                    raise AppError.bad_request("삭제되지 않은 공지입니다.")
                 await self.repository.hard_delete(notice)
             else:
                 if notice.is_deleted:
