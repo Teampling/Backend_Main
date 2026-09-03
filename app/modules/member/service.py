@@ -256,7 +256,7 @@ class MemberService:
                 except Exception:
                     logger.error(f"업로드 실패 후 이미지 롤백 삭제 실패: {profile_object_name}",exc_info=True)
             await self.session.rollback() #아까 했던 DB 작업 전부 취소
-            raise AppError.bad_request(f"[{data.email}]은(는) 이미 존재하는 회원 이메일입니다.")
+            raise AppError.bad_request("요청하신 정보로 회원 정보를 수정할 수 없습니다.")
 
     async def update_role(self, member_id: UUID, role: MemberRole) -> Member:
         """
