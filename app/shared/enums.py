@@ -26,3 +26,11 @@ class InvitationStatus(str, Enum):
 class ChatRoomType(str, Enum):
     GROUP = "group"
     DIRECT = "direct"
+
+class NotificationTargetType(int, Enum):
+    """Notification.target_type 컬럼(SmallInteger)에 대응하는 의미. DB에는 int 값 그대로 저장된다."""
+    PROJECT = 0
+    WORK = 1
+    OTHER = 2
+    NOTICE = 3
+    INVITATION = 4

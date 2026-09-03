@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.exceptions import AppError
 from app.modules.member.repository import MemberRepository
+from app.modules.notification.events import NotificationEvents
 from app.modules.project.models import Project, ProjectInvitation, ProjectMember
 from app.modules.project.repository import ProjectRepository
 from app.modules.project.schemas import ProjectCreateIn, ProjectUpdateIn
@@ -212,12 +213,20 @@ class ProjectService:
         )
 
         saved = await self.repository.save_invitation(invitation)
-        
+
+        # 초대 알림 이벤트를 아웃박스에 기록 (초대장 저장과 같은 트랜잭션으로 묶여 원자적으로 커밋된다).
+        NotificationEvents.project_invited(
+            self.session,
+            invitation_id=saved.id,
+            project_name=project.name,
+            invitee_id=invitee.id,
+        )
+
         # 이메일 발송
         invite_url = f"{settings.FRONTEND_URL}/project/invite/accept?token={token}"
         subject = f"[Teampling] {project.name} 프로젝트 초대"
         body = f"{invitee.username}님, {project.name} 프로젝트에 초대되었습니다.\n\n수락하시려면 아래 링크를 클릭하세요:\n{invite_url}"
-        
+
         await send_email(subject, invitee.email, body)
         await self.session.commit()
         await self.session.refresh(saved)
