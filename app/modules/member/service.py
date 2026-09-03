@@ -43,7 +43,7 @@ class MemberService:
     async def get_by_email(self, email: str, *, include_deleted: bool = False) -> Member:
         member = await self.repository.get_by_email(email, include_deleted=include_deleted)
         if not member:
-            raise AppError.not_found(f"해당 이메일[{email}]을 가진 회원을 찾을 수 없습니다.")
+            raise AppError.not_found(f"해당 이메일[{email}]을 가진 회원")
         return member
 
     #list, count 서비스 부분
@@ -191,7 +191,7 @@ class MemberService:
 
         member = await self.repository.get_by_id(target_member_id, include_deleted=False)
         if not member:
-            raise AppError.not_found(f"Member[{target_member_id}")
+            raise AppError.not_found(f"Member[{target_member_id}]")
 
         #exclude_unset: 코드 작성자가 해당 객체의 값을 지정할 때, 넣지 않은 값은 빼버리는 옵션
         patch = data.model_dump( #patch: 수정할 데이터
@@ -407,7 +407,7 @@ class MemberService:
         # 2. 사용자 확인
         member = await self.repository.get_by_email(email)
         if not member:
-            raise AppError.not_found("사용자를 찾을 수 없습니다.")
+            raise AppError.not_found("사용자")
 
         # 3. 비밀번호 업데이트 (해싱 후 저장)
         member.hashed_password = password_hash(new_password)

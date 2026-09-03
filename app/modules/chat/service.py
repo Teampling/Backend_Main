@@ -124,7 +124,7 @@ class ChatService:
         # 삭제된(또는 존재하지 않는) 방인지 먼저 확인 — 멤버십 행이 남아있어도 삭제된 방엔 메시지를 못 쓰게 막는다.
         room = await self.repository.get_room_by_id(room_id)
         if not room:
-            raise AppError.not_found("채팅방을 찾을 수 없습니다.")
+            raise AppError.not_found("채팅방")
 
         # 멤버십 확인
         if not await self.repository.is_room_member(room_id, sender_id):
@@ -150,7 +150,7 @@ class ChatService:
         # 삭제된(또는 존재하지 않는) 방이면, 멤버십 행이 남아있어도 이력을 볼 수 없게 막는다.
         room = await self.repository.get_room_by_id(room_id)
         if not room:
-            raise AppError.not_found("채팅방을 찾을 수 없습니다.")
+            raise AppError.not_found("채팅방")
 
         if not await self.repository.is_room_member(room_id, member_id):
             raise AppError.forbidden("채팅방 멤버가 아닙니다.")
@@ -174,8 +174,8 @@ class ChatService:
         """채팅방을 삭제합니다."""
         room = await self.repository.get_room_by_id(room_id)
         if not room:
-            raise AppError.not_found("채팅방을 찾을 수 없습니다.")
-        
+            raise AppError.not_found("채팅방")
+
         if room.type == ChatRoomType.GROUP:
             raise AppError.bad_request("단체 채팅방은 삭제할 수 없습니다.")
         

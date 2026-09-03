@@ -195,7 +195,7 @@ class ProjectService:
         project = await self.get(project_id)
         invitee = await self.member_repository.get_by_id(member_id)
         if not invitee:
-            raise AppError.not_found(f"회원[{member_id}]을 찾을 수 없습니다.")
+            raise AppError.not_found(f"회원[{member_id}]")
         
         # 이미 멤버인지 확인
         if await self.repository.is_member(project_id, invitee.id):
@@ -229,7 +229,7 @@ class ProjectService:
         """
         invitation = await self.repository.get_invitation_by_token(token)
         if not invitation or invitation.status != InvitationStatus.PENDING:
-            raise AppError.not_found("유효하지 않은 초대입니다.")
+            raise AppError.not_found("유효한 초대")
         
         if invitation.expires_at < datetime.now(timezone.utc):
             invitation.status = InvitationStatus.EXPIRED
@@ -258,7 +258,7 @@ class ProjectService:
         """
         invitation = await self.repository.get_invitation_by_token(token)
         if not invitation or invitation.status != InvitationStatus.PENDING:
-            raise AppError.not_found("유효하지 않은 초대입니다.")
+            raise AppError.not_found("유효한 초대")
         
         if invitation.member_id != current_member_id:
             raise AppError.forbidden("본인에게 발송된 초대가 아닙니다.")
@@ -311,7 +311,7 @@ class ProjectService:
 
         new_leader = await self.member_repository.get_by_id(new_leader_member_id)
         if not new_leader:
-            raise AppError.not_found(f"회원[{new_leader_member_id}]을 찾을 수 없습니다.")
+            raise AppError.not_found(f"회원[{new_leader_member_id}]")
 
         is_member = await self.repository.is_member(project_id, new_leader_member_id)
         if not is_member:
