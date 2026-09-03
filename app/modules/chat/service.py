@@ -9,6 +9,7 @@ from fastapi import WebSocket
 from app.modules.chat.repository import ChatRepository
 from app.modules.chat.models import ChatRoom, ChatMessage
 from app.modules.chat.schemas import ChatMessageRead
+from app.modules.project.repository import ProjectRepository
 from app.shared.enums import ChatRoomType
 from app.core.exceptions import AppError
 from app.core.redis import redis_client
@@ -74,9 +75,10 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 class ChatService:
-    def __init__(self, session: AsyncSession, repository: ChatRepository):
+    def __init__(self, session: AsyncSession, repository: ChatRepository, project_repository: ProjectRepository):
         self.session = session
         self.repository = repository
+        self.project_repository = project_repository
 
     async def get_or_create_group_room(self, project_id: UUID) -> ChatRoom:
         """프로젝트의 단체 채팅방을 조회하거나 없으면 생성합니다."""
@@ -97,6 +99,9 @@ class ChatService:
         """두 멤버 간의 1:1 채팅방을 조회하거나 없으면 생성합니다."""
         if member_a == member_b:
             raise AppError.bad_request("자기 자신과는 대화할 수 없습니다.")
+
+        if not await self.project_repository.is_member(project_id, member_b):
+            raise AppError.bad_request("상대방이 해당 프로젝트의 멤버가 아닙니다.")
 
         room = await self.repository.get_direct_room(project_id, member_a, member_b)
         if not room:
