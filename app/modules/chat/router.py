@@ -91,6 +91,11 @@ async def delete_room(
         room_id: Annotated[UUID, Path(description="삭제할 채팅방 ID")],
 ):
     await service.delete_room(room_id, current_member.id)
+    # 방 참여자들에게 실시간으로 삭제 알림
+    await manager.publish(room_id, {
+        "type": "room_deleted",
+        "data": {"room_id": str(room_id)},
+    })
     return ApiResponse.success(
         code="CHAT_ROOM_DELETED",
         message="채팅방 삭제 성공",
@@ -136,65 +141,49 @@ async def get_ws_current_member(
         raise AppError.unauthorized("WebSocket 인증 실패")
 
 
-@router.websocket("/ws/{room_id}")
-async def chat_websocket(
+@router.websocket("/ws/projects/{project_id}")
+async def project_websocket(
         websocket: WebSocket,
-        room_id: UUID,
+        project_id: UUID,
         token: Annotated[str, Query()],
         member_service: MemberServiceDep,
         chat_service: ChatServiceDep,
 ):
-    # 핸드쉐이크 먼저 수락
     await websocket.accept()
 
-    # 인증
     try:
         current_member = await get_ws_current_member(token, member_service)
     except Exception:
-        await websocket.close(code=1008)  # Policy Violation
+        await websocket.close(code=1008)
         return
 
-    # 연결
-    await manager.connect(room_id, websocket)
-    first = await manager.add_presence(room_id, current_member.id)
-    if first == 1:
-        await manager.publish(room_id, {
-            "type": "presence",
-            "data": {
-                "member_id": str(current_member.id),
-                "username": current_member.username,
-                "online": True,
-            },
-        })
+    rooms = await chat_service.list_rooms(project_id, current_member.id)
+    room_ids = {room.id for room in rooms}
+    for rid in room_ids:
+        await manager.connect(rid, websocket)
+
+    focused_room: UUID | None = None
 
     try:
         while True:
-            # 클라이언트로부터 메시지 대기
             data = await websocket.receive_text()
-
-            try:
-                payload = json.loads(data)
-                if not isinstance(payload, dict):
-                    raise ValueError
-                event_type = payload.get("type", "message")
-
-            except (json.JSONDecodeError, ValueError):
-                event_type = "message"
-                payload = {"content": data}
+            payload = json.loads(data)
+            event_type = payload.get("type")
 
             if event_type == "message":
+                rid = UUID(payload["room_id"])
+                if rid not in room_ids:
+                    continue
+
                 content = (payload.get("content") or "").strip()
 
                 if not content:
                     continue
-                message = await chat_service.send_message(
-                    room_id=room_id,
-                    sender_id=current_member.id,
-                    content=content,
-                )
+
+                message = await chat_service.send_message(rid, current_member.id, content)
                 msg_data = ChatMessageOut.model_validate(message).model_dump(mode="json")
                 await manager.publish(
-                    room_id,
+                    rid,
                     {
                         "type": "message",
                         "data": msg_data
@@ -202,11 +191,16 @@ async def chat_websocket(
                 )
 
             elif event_type in ("typing_start", "typing_stop"):
+                rid = UUID(payload["room_id"])
+                if rid not in room_ids:
+                    continue
+
                 await manager.publish(
-                    room_id,
+                    rid,
                     {
                         "type": "typing",
                         "data": {
+                            "room_id": str(rid),
                             "member_id": str(current_member.id),
                             "username": current_member.username,
                             "is_typing": event_type == "typing_start"
@@ -214,22 +208,123 @@ async def chat_websocket(
                     }
                 )
 
+            elif event_type == "focus":
+                rid = UUID(payload["room_id"])
+                if rid not in room_ids:
+                    continue
+
+                await manager.switch_focus(current_member.id, current_member.username, focused_room, rid)
+                focused_room = rid
+
+            elif event_type == "blur":
+                await manager.switch_focus(current_member.id, current_member.username, focused_room, None)
+                focused_room = None
+
     except WebSocketDisconnect:
         pass
     except Exception:
         await websocket.close(code=1011)  # Internal Error
     finally:
-        manager.disconnect(room_id, websocket)
-        last = await manager.remove_presence(room_id, current_member.id)
-        if last == 0:
-            await manager.publish(
-                room_id,
-                {
-                    "type": "presence",
-                    "data": {
-                        "member_id": str(current_member.id),
-                        "username": current_member.username,
-                        "online": False,
-                    }
-                }
-            )
+        for rid in room_ids:
+            manager.disconnect(rid, websocket)
+
+        if focused_room is not None:
+            await manager.leave_presence(focused_room, current_member.id, current_member.username)
+
+# @router.websocket("/ws/{room_id}")
+# async def chat_websocket(
+#         websocket: WebSocket,
+#         room_id: UUID,
+#         token: Annotated[str, Query()],
+#         member_service: MemberServiceDep,
+#         chat_service: ChatServiceDep,
+# ):
+#     # 핸드쉐이크 먼저 수락
+#     await websocket.accept()
+#
+#     # 인증
+#     try:
+#         current_member = await get_ws_current_member(token, member_service)
+#     except Exception:
+#         await websocket.close(code=1008)  # Policy Violation
+#         return
+#
+#     # 연결
+#     await manager.connect(room_id, websocket)
+#     first = await manager.add_presence(room_id, current_member.id)
+#     if first == 1:
+#         await manager.publish(room_id, {
+#             "type": "presence",
+#             "data": {
+#                 "member_id": str(current_member.id),
+#                 "username": current_member.username,
+#                 "online": True,
+#             },
+#         })
+#
+#     try:
+#         while True:
+#             # 클라이언트로부터 메시지 대기
+#             data = await websocket.receive_text()
+#
+#             try:
+#                 payload = json.loads(data)
+#                 if not isinstance(payload, dict):
+#                     raise ValueError
+#                 event_type = payload.get("type", "message")
+#
+#             except (json.JSONDecodeError, ValueError):
+#                 event_type = "message"
+#                 payload = {"content": data}
+#
+#             if event_type == "message":
+#                 content = (payload.get("content") or "").strip()
+#
+#                 if not content:
+#                     continue
+#                 message = await chat_service.send_message(
+#                     room_id=room_id,
+#                     sender_id=current_member.id,
+#                     content=content,
+#                 )
+#                 msg_data = ChatMessageOut.model_validate(message).model_dump(mode="json")
+#                 await manager.publish(
+#                     room_id,
+#                     {
+#                         "type": "message",
+#                         "data": msg_data
+#                     }
+#                 )
+#
+#             elif event_type in ("typing_start", "typing_stop"):
+#                 await manager.publish(
+#                     room_id,
+#                     {
+#                         "type": "typing",
+#                         "data": {
+#                             "member_id": str(current_member.id),
+#                             "username": current_member.username,
+#                             "is_typing": event_type == "typing_start"
+#                         }
+#                     }
+#                 )
+#
+#     except WebSocketDisconnect:
+#         pass
+#     except Exception:
+#         await websocket.close(code=1011)  # Internal Error
+#     finally:
+#         manager.disconnect(room_id, websocket)
+#         last = await manager.remove_presence(room_id, current_member.id)
+#         if last == 0:
+#             await manager.publish(
+#                 room_id,
+#                 {
+#                     "type": "presence",
+#                     "data": {
+#                         "member_id": str(current_member.id),
+#                         "username": current_member.username,
+#                         "online": False,
+#                     }
+#                 }
+#             )

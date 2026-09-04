@@ -32,7 +32,7 @@ class ConnectionManager:
 
     def disconnect(self, room_id: UUID, websocket: WebSocket):
         if room_id in self.active_connections:
-            self.active_connections[room_id].remove(websocket)
+            self.active_connections[room_id].discard(websocket)
             if not self.active_connections[room_id]:
                 # 더 이상 연결된 세션이 없으면 구독 중단
                 if room_id in self.sub_tasks:
@@ -65,7 +65,7 @@ class ConnectionManager:
                 try:
                     await connection.send_json(message)
                 except Exception:
-                    self.active_connections[room_id].remove(connection)
+                    self.active_connections[room_id].discard(connection)
 
     async def publish(self, room_id: UUID, message: dict):
         """Redis 채널에 메시지를 발행합니다 (전체 서버 인스턴스로 확산)."""
@@ -90,6 +90,43 @@ class ConnectionManager:
 
     async def is_present(self, room_id: UUID, member_id: UUID) -> bool:
         return await redis_client.hexists(self._presence_key(room_id), str(member_id))
+
+    async def enter_presence(self, room_id: UUID, member_id: UUID, username: str) -> None:
+        """focus 시 호출: presence 등록, 첫 진입이면 online 브로드캐스트"""
+        first = await self.add_presence(room_id, member_id)
+        if first == 1:
+            await self.publish(room_id, {
+                "type": "presence",
+                "data": {
+                    "room_id": str(room_id),
+                    "member_id": str(member_id),
+                    "username": username,
+                    "online": True,
+                },
+            })
+
+    async def leave_presence(self, room_id: UUID, member_id: UUID, username: str) -> None:
+        """blur/disconnect 시 호출: presence 해제, 마지막이면 offline 브로드캐스트"""
+        last = await self.remove_presence(room_id, member_id)
+        if last == 0:
+            await self.publish(room_id, {
+                "type": "presence",
+                "data": {
+                    "room_id": str(room_id),
+                    "member_id": str(member_id),
+                    "username": username,
+                    "online": False,
+                },
+            })
+
+    async def switch_focus(self, member_id: UUID, username: str, old_room: UUID | None, new_room: UUID | None) -> None:
+        """보던 방(old)에서 나가고 새 방(new)으로 focus 이동"""
+        if old_room == new_room:
+            return
+        if old_room is not None:
+            await self.leave_presence(old_room, member_id, username)
+        if new_room is not None:
+            await self.enter_presence(new_room, member_id, username)
 
 manager = ConnectionManager()
 
