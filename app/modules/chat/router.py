@@ -1,3 +1,4 @@
+import json
 from typing import Annotated
 from uuid import UUID
 
@@ -155,29 +156,80 @@ async def chat_websocket(
 
     # 연결
     await manager.connect(room_id, websocket)
+    first = await manager.add_presence(room_id, current_member.id)
+    if first == 1:
+        await manager.publish(room_id, {
+            "type": "presence",
+            "data": {
+                "member_id": str(current_member.id),
+                "username": current_member.username,
+                "online": True,
+            },
+        })
 
     try:
         while True:
             # 클라이언트로부터 메시지 대기
             data = await websocket.receive_text()
 
-            # 메시지 저장
-            # TODO: 메시지 타입(TEXT, IMAGE 등) 처리 추가 가능
-            message = await chat_service.send_message(
-                room_id=room_id,
-                sender_id=current_member.id,
-                content=data,
-            )
+            try:
+                payload = json.loads(data)
+                if not isinstance(payload, dict):
+                    raise ValueError
+                event_type = payload.get("type", "message")
 
-            # 브로드캐스트용 데이터 구성
-            msg_data = ChatMessageOut.model_validate(message).model_dump(mode="json")
+            except (json.JSONDecodeError, ValueError):
+                event_type = "message"
+                payload = {"content": data}
 
-            # Redis를 통해 전체 서버 인스턴스로 발행
-            await manager.publish(room_id, msg_data)
+            if event_type == "message":
+                content = (payload.get("content") or "").strip()
+
+                if not content:
+                    continue
+                message = await chat_service.send_message(
+                    room_id=room_id,
+                    sender_id=current_member.id,
+                    content=content,
+                )
+                msg_data = ChatMessageOut.model_validate(message).model_dump(mode="json")
+                await manager.publish(
+                    room_id,
+                    {
+                        "type": "message",
+                        "data": msg_data
+                    }
+                )
+
+            elif event_type in ("typing_start", "typing_stop"):
+                await manager.publish(
+                    room_id,
+                    {
+                        "type": "typing",
+                        "data": {
+                            "member_id": str(current_member.id),
+                            "username": current_member.username,
+                            "is_typing": event_type == "typing_start"
+                        }
+                    }
+                )
 
     except WebSocketDisconnect:
-        manager.disconnect(room_id, websocket)
+        pass
     except Exception:
-        # 기타 에러 발생 시 연결 종료
-        manager.disconnect(room_id, websocket)
         await websocket.close(code=1011)  # Internal Error
+    finally:
+        manager.disconnect(room_id, websocket)
+        last = await manager.remove_presence(room_id, current_member.id)
+        if last == 0:
+            await manager.publish(
+                room_id,
+                {
+                    "type": "presence",
+                    "data": {
+                        "member_id": str(current_member.id),
+                        "username": current_member.username,
+                        "online": False,
+                    }
+                }
+            )

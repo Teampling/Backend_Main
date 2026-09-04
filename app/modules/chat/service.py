@@ -71,6 +71,26 @@ class ConnectionManager:
         """Redis 채널에 메시지를 발행합니다 (전체 서버 인스턴스로 확산)."""
         await redis_client.publish(f"chat:{room_id}", json.dumps(message))
 
+    def _presence_key(self, room_id: UUID) -> str:
+        return f"presence:room:{room_id}"
+
+    async def add_presence(self, room_id: UUID, member_id: UUID) -> int:
+        """연결 수 +1, 갱신된 연결 수 반환. 1이면 '방금 온라인 됨'"""
+        count = await redis_client.hincrby(self._presence_key(room_id), str(member_id), 1)
+        return count
+
+    async def remove_presence(self, room_id: UUID, member_id: UUID) -> int:
+        """연결 수 -1, 0 이하면 필드 삭제. 0이면 '방금 오프라인 됨'"""
+        key = self._presence_key(room_id)
+        count = await redis_client.hincrby(key, str(member_id), -1)
+        if count <= 0:
+            await redis_client.hdel(key, str(member_id))
+            return 0
+        return count
+
+    async def is_present(self, room_id: UUID, member_id: UUID) -> bool:
+        return await redis_client.hexists(self._presence_key(room_id), str(member_id))
+
 manager = ConnectionManager()
 
 class ChatService:

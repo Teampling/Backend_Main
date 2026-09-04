@@ -715,6 +715,14 @@ th {
     border-left: 4px solid #6f42c1;
 }
 
+.chat-typing {
+    min-height: 20px;
+    padding: 0 1rem 0.3rem;
+    font-size: 0.8rem;
+    color: #868e96;
+    font-style: italic;
+}
+
 .chat-room-time {
     flex-shrink: 0;
     font-size: 0.72rem;

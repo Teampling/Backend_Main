@@ -26,3 +26,8 @@ class InvitationStatus(str, Enum):
 class ChatRoomType(str, Enum):
     GROUP = "group"
     DIRECT = "direct"
+
+class ChatEventType(str, Enum):
+    MESSAGE = "message"
+    TYPING = "typing"
+    PRESENCE = "presence"
