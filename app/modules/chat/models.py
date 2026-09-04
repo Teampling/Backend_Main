@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Enum, Column, DateTime
+from sqlalchemy import Enum, Column, DateTime, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.shared.models.base import BaseModel
@@ -21,6 +22,9 @@ class ChatRoomMember(SQLModel, table=True):
     joined_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    last_read_message_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("chat_messages.id"), nullable=True, default=None
     )
 
 class ChatRoom(BaseModel, table=True):

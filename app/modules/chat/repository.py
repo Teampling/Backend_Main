@@ -102,6 +102,11 @@ class ChatRepository:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
+    async def get_message_by_id(self, message_id: UUID) -> ChatMessage | None:
+        stmt = select(ChatMessage).where(ChatMessage.id == message_id)
+        result = await self.session.execute(stmt)
+        return result.scalar()
+
     async def is_room_member(self, room_id: UUID, member_id: UUID) -> bool:
         stmt = select(ChatRoomMember).where(
             ChatRoomMember.chat_room_id == room_id,
@@ -116,3 +121,34 @@ class ChatRepository:
         room.deleted_at = datetime.now(timezone.utc)
         self.session.add(room)
         await self.session.flush()
+
+    async def mark_as_read(self, room_id: UUID, member_id: UUID, message_id: UUID) -> None:
+        await self.session.execute(
+            update(ChatRoomMember)
+            .where(
+                ChatRoomMember.chat_room_id == room_id,
+                ChatRoomMember.member_id == member_id,
+            )
+            .values(last_read_message_id = message_id)
+        )
+
+    async def get_unread_count(self, room_id: UUID, member_id: UUID) -> int:
+        result = await self.session.execute(
+            select(ChatRoomMember.last_read_message_id)
+            .where(
+                ChatRoomMember.chat_room_id == room_id,
+                ChatRoomMember.member_id == member_id,
+            )
+        )
+        last_read_message_id = result.scalar_one_or_none()
+
+        count_query = select(func.count()).where(
+            ChatMessage.chat_room_id == room_id,
+            ChatMessage.is_deleted == False,
+        )
+        if last_read_message_id is not None:
+            sub_query = select(ChatMessage.created_at).where(ChatMessage.id == last_read_message_id).scalar_subquery()
+            count_query = count_query.where(ChatMessage.created_at > sub_query)
+
+        result = await self.session.execute(count_query)
+        return result.scalar_one()

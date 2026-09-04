@@ -10,6 +10,7 @@ from app.modules.project.dependencies import ProjectParticipantDep
 from app.modules.member.models import Member
 from app.core.exceptions import AppError
 from app.core.security import decode_token
+from app.shared.schemas import ApiResponse
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -115,6 +116,24 @@ async def chat_websocket(
     except WebSocketDisconnect:
         manager.disconnect(room_id, websocket)
     except Exception as e:
-        # 기타 에러 발생 시 연결 종료
         manager.disconnect(room_id, websocket)
-        await websocket.close(code=1011) # Internal Error
+        await websocket.close(code=1011)
+
+@router.post(
+    path="/rooms/{room_id}/read/{message_id}",
+    response_model=ApiResponse[None],
+    summary="채팅방 메시지 읽음 처리",
+    description="채팅방에서 특정 메시지를 가장 최근에 읽은 메시지로 처리합니다."
+)
+async def mark_as_read(
+    room_id: UUID,
+    message_id: UUID,
+    current_member: CurrentMemberDep,
+    service: ChatService = Depends(get_chat_service)
+):
+    await service.mark_ad_read(room_id, current_member.id, message_id)
+    return ApiResponse.success(
+        code="MESSAGE_MARKED_AS_READ",
+        message="메시지 읽음 처리 완료",
+        data=None,
+    )

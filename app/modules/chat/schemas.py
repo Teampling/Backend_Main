@@ -36,7 +36,8 @@ class ChatRoomRead(ChatRoomBase):
     id: UUID
     created_at: datetime
     members: list[MemberOut] = []
-    
+    unread_count: int = 0
+
     class Config:
         from_attributes = True
 
