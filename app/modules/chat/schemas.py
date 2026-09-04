@@ -1,46 +1,39 @@
+#dto
 from datetime import datetime
 from uuid import UUID
-from pydantic import BaseModel
+
+from pydantic import ConfigDict
+from sqlmodel import SQLModel, Field
+
 from app.shared.enums import ChatRoomType
 from app.modules.member.schemas import MemberOut
 
-class ChatMessageBase(BaseModel):
-    content: str
 
-class ChatMessageCreate(ChatMessageBase):
-    chat_room_id: UUID
+#요청
+class DirectChatRoomCreateIn(SQLModel):
+    target_member_id: UUID = Field(description="대화 상대 회원 고유키")
 
-class ChatMessageRead(ChatMessageBase):
-    id: UUID
-    chat_room_id: UUID
-    sender_id: UUID
-    sender: MemberOut
-    created_at: datetime
 
-    class Config:
-        from_attributes = True
+#응답
+class ChatMessageOut(SQLModel):
+    id: UUID = Field(description="메시지 고유키")
+    chat_room_id: UUID = Field(description="채팅방 고유키")
+    sender_id: UUID = Field(description="발신자 회원 고유키")
+    sender: MemberOut = Field(description="발신자 정보")
+    content: str = Field(description="메시지 내용")
+    created_at: datetime = Field(description="생성 일시")
 
-class ChatRoomBase(BaseModel):
-    project_id: UUID
-    type: ChatRoomType
-    name: str | None = None
+    model_config = ConfigDict(from_attributes=True)
 
-class ChatRoomCreate(ChatRoomBase):
-    pass
 
-class DirectChatRoomCreate(BaseModel):
-    project_id: UUID
-    target_member_id: UUID
+class ChatRoomOut(SQLModel):
+    id: UUID = Field(description="채팅방 고유키")
+    project_id: UUID = Field(description="프로젝트 고유키")
+    type: ChatRoomType = Field(description="채팅방 유형(group/direct)")
+    name: str | None = Field(default=None, description="채팅방 이름 (단체 채팅방용)")
+    created_at: datetime = Field(description="생성 일시")
+    members: list[MemberOut] = Field(default=[], description="채팅방 참여자 목록")
+    unread_count: int = Field(default=0, description="읽지 않은 메시지 수")
+    last_message: ChatMessageOut | None = Field(default=None, description="마지막 메시지")
 
-class ChatRoomRead(ChatRoomBase):
-    id: UUID
-    created_at: datetime
-    members: list[MemberOut] = []
-    unread_count: int = 0
-
-    class Config:
-        from_attributes = True
-
-class ChatRoomDetailRead(ChatRoomRead):
-    members: list[MemberOut]
-    # messages: list[ChatMessageRead] # 메시지는 별도 페이징 API로 가져오는 것이 효율적
+    model_config = ConfigDict(from_attributes=True)

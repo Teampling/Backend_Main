@@ -230,17 +230,16 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        project_id: projectId,
                         target_member_id: targetMemberId
                     })
                 });
-                
-                const room = await response.json();
+
+                const result = await response.json();
                 if (response.ok) {
                     // 성공 시 해당 프로젝트 페이지의 채팅방으로 이동
-                    location.href = `/static/project-detail.html?id=${projectId}&chat_room_id=${room.id}`;
+                    location.href = `/static/project-detail.html?id=${projectId}&chat_room_id=${result.data.id}`;
                 } else {
-                    alert('채팅방 생성 실패: ' + (room.message || '오류가 발생했습니다.'));
+                    alert('채팅방 생성 실패: ' + (result.message || '오류가 발생했습니다.'));
                 }
             } catch (e) {
                 alert('통신 오류 발생');

@@ -633,7 +633,8 @@
                 const response = await fetch(`/chat/projects/${currentProjectId}/rooms`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                chatRooms = await response.json();
+                const result = await response.json();
+                chatRooms = result.data;
                 renderChatRooms();
             } catch (e) {
                 console.error('채팅방 로드 실패', e);
@@ -647,11 +648,13 @@
                 return;
             }
 
-            // 1. 단체 채팅방을 상단으로 정렬 (group 타입이 앞에 오도록)
+            // 1. 단체 채팅방은 상단 고정, 그 외에는 마지막 메시지 시각 기준 최근순 정렬
             const sortedRooms = [...chatRooms].sort((a, b) => {
                 if (a.type === 'group' && b.type !== 'group') return -1;
                 if (a.type !== 'group' && b.type === 'group') return 1;
-                return 0;
+                const aTime = a.last_message ? new Date(a.last_message.created_at).getTime() : 0;
+                const bTime = b.last_message ? new Date(b.last_message.created_at).getTime() : 0;
+                return bTime - aTime;
             });
 
             const myId = localStorage.getItem('user_id');
@@ -671,15 +674,23 @@
                     }
                 }
 
+                // 마지막 메시지 미리보기 (없으면 기본 라벨)
+                const preview = room.last_message
+                    ? escapeHtml(room.last_message.content)
+                    : (room.type === 'group' ? '단체 채팅방' : '1:1 채팅');
+                const previewTime = room.last_message ? formatPreviewTime(room.last_message.created_at) : '';
+
                 return `
                     <div class="chat-room-item ${currentRoomId === room.id ? 'active' : ''}" onclick="selectChatRoom('${room.id}', '${displayName}')">
                         <div class="header-profile-img" style="width: 40px; height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #e9ecef; overflow: hidden;">
                             ${displayIcon ? displayIcon : `<img src="${displayImg}" style="width: 100%; height: 100%; object-fit: cover;">`}
                         </div>
-                        <div class="chat-room-info" style="flex: 1;">
+                        <div class="chat-room-info" style="flex: 1; min-width: 0;">
                             <h4>${displayName}</h4>
-                            <p>${room.type === 'group' ? '단체 채팅방' : '1:1 채팅'}</p>
+                            <p>${preview}</p>
                         </div>
+                        ${previewTime ? `<span class="chat-room-time">${previewTime}</span>` : ''}
+                        ${room.unread_count > 0 ? `<span class="unread-badge">${room.unread_count > 99 ? '99+' : room.unread_count}</span>` : ''}
                         ${room.type === 'direct' ? `
                             <button onclick="event.stopPropagation(); deleteChatRoom('${room.id}')" 
                                     style="background: none; border: none; color: #adb5bd; cursor: pointer; padding: 5px; font-size: 1.2rem;">
@@ -746,18 +757,58 @@
                 const response = await fetch(`/chat/rooms/${roomId}/messages?limit=50`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const messages = await response.json();
+                const result = await response.json();
+                const messages = result.data;
                 const container = document.getElementById('chat-messages');
                 container.innerHTML = '';
-                
+
+                // API는 최신순(desc)으로 내려주므로 messages[0]이 가장 최근 메시지
+                if (messages.length > 0) {
+                    markAsRead(roomId, messages[0].id);
+                }
+
                 // 역순으로 렌더링 (최신이 위로 오는 API라면 뒤집기 필요)
                 messages.reverse().forEach(msg => {
                     appendMessage(msg);
                 });
-                
+
                 scrollToBottom();
             } catch (e) {
                 console.error('이력 로드 실패', e);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatPreviewTime(iso) {
+            const date = new Date(iso);
+            const now = new Date();
+            const isToday = date.toDateString() === now.toDateString();
+            if (isToday) {
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            return date.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+        }
+
+        async function markAsRead(roomId, messageId) {
+            const token = localStorage.getItem('access_token');
+            try {
+                await fetch(`/chat/rooms/${roomId}/read/${messageId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                // 로컬 목록의 안읽은 개수를 즉시 0으로 반영
+                const room = chatRooms.find(r => r.id === roomId);
+                if (room && room.unread_count > 0) {
+                    room.unread_count = 0;
+                    renderChatRooms();
+                }
+            } catch (e) {
+                console.error('읽음 처리 실패', e);
             }
         }
 
@@ -772,6 +823,15 @@
                 const msg = JSON.parse(event.data);
                 appendMessage(msg);
                 scrollToBottom();
+                // 사이드바의 마지막 메시지 미리보기 갱신
+                const room = chatRooms.find(r => r.id === msg.chat_room_id);
+                if (room) room.last_message = msg;
+                // 현재 열려있는 방의 메시지면 즉시 읽음 처리 (내부에서 renderChatRooms 호출됨)
+                if (msg.chat_room_id === currentRoomId) {
+                    markAsRead(currentRoomId, msg.id);
+                } else {
+                    renderChatRooms();
+                }
             };
             
             chatSocket.onclose = () => {

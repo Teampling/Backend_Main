@@ -2,7 +2,7 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select, and_, func
+from sqlmodel import select, func, update
 from app.modules.chat.models import ChatRoom, ChatRoomMember, ChatMessage
 from app.shared.enums import ChatRoomType
 
@@ -106,6 +106,21 @@ class ChatRepository:
         stmt = select(ChatMessage).where(ChatMessage.id == message_id)
         result = await self.session.execute(stmt)
         return result.scalar()
+
+    async def get_last_messages(self, room_ids: list[UUID]) -> dict[UUID, ChatMessage]:
+        """여러 방의 마지막 메시지를 DISTINCT ON으로 한 번에 조회합니다."""
+        if not room_ids:
+            return {}
+        # DISTINCT ON (chat_room_id) + created_at DESC → 방별 가장 최근 메시지 1건
+        stmt = (
+            select(ChatMessage)
+            .where(ChatMessage.chat_room_id.in_(room_ids), ChatMessage.is_deleted == False)
+            .options(selectinload(ChatMessage.sender))
+            .distinct(ChatMessage.chat_room_id)
+            .order_by(ChatMessage.chat_room_id, ChatMessage.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return {message.chat_room_id: message for message in result.scalars().all()}
 
     async def is_room_member(self, room_id: UUID, member_id: UUID) -> bool:
         stmt = select(ChatRoomMember).where(

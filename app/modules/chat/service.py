@@ -8,7 +8,7 @@ from fastapi import WebSocket
 
 from app.modules.chat.repository import ChatRepository
 from app.modules.chat.models import ChatRoom, ChatMessage
-from app.modules.chat.schemas import ChatMessageRead, ChatRoomRead
+from app.modules.chat.schemas import ChatRoomOut, ChatMessageOut
 from app.shared.enums import ChatRoomType
 from app.core.exceptions import AppError
 from app.core.redis import redis_client
@@ -146,7 +146,7 @@ class ChatService:
         
         return await self.repository.get_messages(room_id, limit, offset)
 
-    async def list_rooms(self, project_id: UUID, member_id: UUID) -> list[ChatRoomRead]:
+    async def list_rooms(self, project_id: UUID, member_id: UUID) -> list[ChatRoomOut]:
         """참여 중인 채팅방 목록을 조회합니다."""
         group_room = await self.get_or_create_group_room(project_id)
 
@@ -155,12 +155,15 @@ class ChatService:
             await self.session.commit()
 
         rooms = await self.repository.get_rooms_by_project(project_id, member_id)
+        last_messages = await self.repository.get_last_messages([room.id for room in rooms])
 
         result = []
         for room in rooms:
             count = await self.repository.get_unread_count(room.id, member_id)
-            room_data = ChatRoomRead.model_validate(room)
+            room_data = ChatRoomOut.model_validate(room)
             room_data.unread_count = count
+            last = last_messages.get(room.id)
+            room_data.last_message = ChatMessageOut.model_validate(last) if last else None
             result.append(room_data)
         return result
 
@@ -179,7 +182,7 @@ class ChatService:
         await self.repository.delete_room(room)
         await self.session.commit()
 
-    async def mark_ad_read(self, room_id: UUID, member_id: UUID, message_id: UUID) -> None:
+    async def mark_as_read(self, room_id: UUID, member_id: UUID, message_id: UUID) -> None:
         if not await self.repository.is_room_member(room_id, member_id):
             raise AppError.forbidden("채팅방 멤버가 아닙니다.")
 
@@ -188,3 +191,4 @@ class ChatService:
             raise AppError.not_found("메시지")
 
         await self.repository.mark_as_read(room_id, member_id, message_id)
+        await self.session.commit()
