@@ -248,6 +248,9 @@
         let projectSocket = null;
         let currentRoomId = null;
         let chatRooms = [];
+        let wasConnected = false;      // 첫 연결 / 재연결 구분
+        let isManualClose = false;     // 의도적 종료 시 재연결 방지
+        let reconnectDelay = 2000;     // 재연결 대기 시간 (backoff)
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!currentProjectId) {
@@ -637,7 +640,6 @@
                 const result = await response.json();
                 chatRooms = result.data;
                 renderChatRooms();
-                // 프로젝트 단위 WS 연결 (한 번만)
                 connectProjectSocket();
             } catch (e) {
                 console.error('채팅방 로드 실패', e);
@@ -852,6 +854,14 @@
             projectSocket = new WebSocket(wsUrl);
 
             projectSocket.onopen = () => {
+                reconnectDelay = 2000;
+                if (wasConnected) {
+                    // 재연결 → 끊긴 동안의 공백 복구 (DB 최신 상태로 통째 재조회)
+                    loadChatRooms();
+                    if (currentRoomId) loadChatHistory(currentRoomId);
+                }
+                wasConnected = true;
+
                 // (재)연결 후, 보고 있던 방이 있으면 focus 재전송
                 if (currentRoomId) sendFocus(currentRoomId);
             };
@@ -859,7 +869,10 @@
             projectSocket.onmessage = handleSocketMessage;
 
             projectSocket.onclose = () => {
-                console.log('WebSocket disconnected');
+                if (isManualClose) return;
+
+                setTimeout(connectProjectSocket, reconnectDelay);
+                reconnectDelay = Math.min(reconnectDelay * 2, 30000);
             };
 
             projectSocket.onerror = (error) => {
