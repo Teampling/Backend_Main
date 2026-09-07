@@ -1,4 +1,5 @@
 import json
+import asyncio
 from typing import Annotated
 from uuid import UUID
 
@@ -51,6 +52,14 @@ async def create_direct_room(
         data: DirectChatRoomCreateIn,
 ):
     room = await service.get_or_create_direct_room(project_id, current_member.id, data.target_member_id)
+
+    await manager.publish_project(project_id, {
+        "type": "room_created",
+        "data": {
+            "room": ChatRoomOut.model_validate(room).model_dump(mode="json"),
+            "member_ids": [str(member.id) for member in room.members],
+        },
+    })
     return ApiResponse.success(
         code="CHAT_DIRECT_ROOM_CREATED",
         message="1:1 채팅방 생성 성공",
@@ -162,6 +171,11 @@ async def project_websocket(
     for rid in room_ids:
         await manager.connect(rid, websocket)
 
+    # 제어 채널 구독 태스크 시작 (접속 후 생긴 방을 실시간으로 구독)
+    project_task = asyncio.create_task(
+        manager.subscribe_project_events(project_id, current_member.id, websocket, room_ids)
+    )
+
     focused_room: UUID | None = None
 
     try:
@@ -225,7 +239,8 @@ async def project_websocket(
     except Exception:
         await websocket.close(code=1011)  # Internal Error
     finally:
-        for rid in room_ids:
+        project_task.cancel()
+        for rid in list(room_ids):
             manager.disconnect(rid, websocket)
 
         if focused_room is not None:

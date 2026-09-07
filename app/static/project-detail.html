@@ -928,6 +928,13 @@
                     document.getElementById('chat-form').style.display = 'none';
                 }
                 renderChatRooms();
+            } else if (evt.type === 'room_created') {
+                const room = evt.data;
+                // 이미 있는 방이 아니면 목록에 추가
+                if (!chatRooms.find(r => r.id === room.id)) {
+                    chatRooms.push(room);
+                    renderChatRooms();
+                }
             }
         }
 

@@ -71,6 +71,36 @@ class ConnectionManager:
         """Redis 채널에 메시지를 발행합니다 (전체 서버 인스턴스로 확산)."""
         await redis_client.publish(f"chat:{room_id}", json.dumps(message))
 
+    async def publish_project(self, project_id: UUID, message: dict):
+        """프로젝트 제어 채널에 발행 (방 목록 변경 알림용)"""
+        await redis_client.publish(f"project:{project_id}", json.dumps(message))
+
+    async def subscribe_project_events(self, project_id: UUID, member_id: UUID, websocket: WebSocket, room_ids: set[UUID]):
+        pubsub = redis_client.pubsub()
+        channel = f"project:{project_id}"
+        await pubsub.subscribe(channel)
+        try:
+            async for message in pubsub.listen():
+                if message["type"] != "message":
+                    continue
+                evt = json.loads(message["data"])
+                if evt.get("type") != "room_created":
+                    continue
+                data = evt["data"]
+                if str(member_id) not in data["member_ids"]:
+                    continue
+                new_room_id = UUID(data["room"]["id"])
+                if new_room_id in room_ids:
+                    continue
+                await self.connect(new_room_id, websocket)
+                room_ids.add(new_room_id)
+                await websocket.send_json({"type": "room_created", "data": data["room"]})
+        except asyncio.CancelledError:
+            await pubsub.unsubscribe(channel)
+        except Exception as e:
+            logger.error(f"해당 프로젝트 이벤트 구독 중 오류 발생: {e}")
+            await pubsub.unsubscribe(channel)
+
     def _presence_key(self, room_id: UUID) -> str:
         return f"presence:room:{room_id}"
 
