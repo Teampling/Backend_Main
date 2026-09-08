@@ -40,3 +40,10 @@ class NotificationEventType(str, Enum):
     PROJECT_INVITATION_DECLINED = "project_invitation_declined"
     PROJECT_MEMBER_REMOVED = "project_member_removed"
     PROJECT_LEADERSHIP_TRANSFERRED = "project_leadership_transferred"
+
+class NotificationTargetType(int, Enum):
+    PROJECT = 0
+    WORK = 1
+    NOTICE = 2
+    INVITATION = 3
+    OTHER = 4
