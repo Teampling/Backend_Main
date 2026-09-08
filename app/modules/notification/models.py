@@ -101,9 +101,9 @@ class OutboxEvent(BaseModel, table=True):
         description="발행할 내용 (받는 대상 / 제목 / 본문 등)"
     )
 
-    dispatched: bool = Field(
-        default=False,
-        description="발행 완료 여부"
+    dispatched_at: AwareDatetime | None = Field(
+        default=None,
+        sa_type=UtcDateTime,
     )
 
     attempts: int = Field(

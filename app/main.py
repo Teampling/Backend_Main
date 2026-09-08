@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ConfigDict
@@ -9,6 +12,7 @@ from app.core.exception_handler import register_exception_handlers
 from app.core.exceptions import AppError
 from app.core.logger import setup_logging
 from app.core.middleware import RequestIdMiddleware
+from app.modules.notification.outbox_relay import run_outbox_relay
 from app.shared.schemas import ApiResponse
 from app.modules.skill.router import router as skill_router
 from app.modules.member.router import router as member_router
@@ -28,6 +32,15 @@ from app.modules.resource.models import Resource
 from app.modules.work.models import Work
 from app.modules.chat.models import ChatRoom, ChatRoomMember, ChatMessage
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    outbox_relay_task = asyncio.create_task(run_outbox_relay())
+
+    yield
+
+    outbox_relay_task.cancel()
+
 class HealthOut(BaseModel):
     status: str = Field(example="ok")
     app: str = Field(example="teampling-api")
@@ -41,7 +54,7 @@ class HealthOut(BaseModel):
 
 def create_app() -> FastAPI:
     setup_logging()
-    app = FastAPI(title=settings.APP_NAME)
+    app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
 
     # Exception Handler 등록
     register_exception_handlers(app)
