@@ -4,7 +4,7 @@ from pydantic import AwareDatetime
 from sqlalchemy import SmallInteger, Column, Enum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy_utc import UtcDateTime
-from sqlmodel import Field
+from sqlmodel import Field, Relationship
 
 from app.shared.enums import NotificationEventType
 from app.shared.models.base import BaseModel
@@ -56,6 +56,8 @@ class Notification(BaseModel, table=True):
 
 class NotificationRecipient(BaseModel, table=True):
     __tablename__ = "notification_recipients"
+
+    notification: "Notification" = Relationship()
 
     notification_id: UUID = Field(
         foreign_key="notifications.id",

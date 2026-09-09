@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
+from sqlalchemy import func, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.modules.notification.models import OutboxEvent, Notification, NotificationRecipient
@@ -31,13 +33,85 @@ class NotificationRepository:
         )
         self.session.add(notification)
         await self.session.flush()
+        await self.session.refresh(notification)
 
         for member_id in dict.fromkeys(recipient_ids):
             self.session.add(NotificationRecipient(notification_id=notification.id, member_id=member_id))
 
-        await self.session.commit()
-        await self.session.refresh(notification)
         return notification
+
+    async def list_by_member(
+            self,
+            member_id: UUID,
+            *,
+            offset: int = 0,
+            limit: int = 100,
+            unread_only: bool = False,
+    ) -> list[NotificationRecipient]:
+        stmt = (
+            select(NotificationRecipient)
+            .where(
+                NotificationRecipient.member_id == member_id,
+                NotificationRecipient.is_deleted == False,
+            )
+            .options(selectinload(NotificationRecipient.notification))
+            .order_by(NotificationRecipient.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+
+        if unread_only:
+            stmt = stmt.where(NotificationRecipient.read_at.is_(None))
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_by_member(
+            self,
+            member_id: UUID,
+            *,
+            unread_only: bool = False,
+    ) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(NotificationRecipient)
+            .where(
+                NotificationRecipient.member_id == member_id,
+                NotificationRecipient.is_deleted == False,
+            )
+        )
+
+        if unread_only:
+            stmt = stmt.where(NotificationRecipient.read_at.is_(None))
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
+
+    async def get_recipient(
+            self,
+            member_id: UUID,
+            notification_id: UUID,
+    ) -> NotificationRecipient | None:
+        stmt = select(NotificationRecipient).where(
+            NotificationRecipient.member_id == member_id,
+            NotificationRecipient.notification_id == notification_id,
+            NotificationRecipient.is_deleted == False,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def mark_all_read(self, member_id: UUID) -> int:
+        stmt = (
+            update(NotificationRecipient)
+            .where(
+                NotificationRecipient.member_id == member_id,
+                NotificationRecipient.read_at.is_(None),
+                NotificationRecipient.is_deleted == False,
+            )
+            .values(read_at=datetime.now(timezone.utc))
+        )
+        result = await self.session.execute(stmt)
+        return result.rowcount
 
 class OutboxEventRepository:
     def __init__(self, session: AsyncSession):

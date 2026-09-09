@@ -21,6 +21,7 @@ from app.modules.project.router import router as project_router
 from app.modules.work.router import work_router, project_work_router
 from app.modules.notice.router import router as notice_router
 from app.modules.chat.router import router as chat_router
+from app.modules.notification.router import router as notification_router
 from app.modules.skill.models import Skill
 from app.modules.member.models import Member
 from app.modules.favorite.models import Favorite
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(project_work_router)
     app.include_router(notice_router)
     app.include_router(chat_router)
+    app.include_router(notification_router)
 
     # Static Files
     app.mount("/static", StaticFiles(directory="app/static"), name="static")

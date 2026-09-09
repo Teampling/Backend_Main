@@ -38,22 +38,25 @@ async def _handle_message(message_id: str, fields: dict):
             recipient_ids=recipient_ids,
         )
 
+        realtime_payload = {
+            "notification_id": str(notification.id),
+            "event_type": notification.event_type,
+            "title": notification.title,
+            "detail": notification.detail,
+            "target_type": notification.target_type,
+            "target_id": str(notification.target_id) if notification.target_id else None,
+            "created_at": notification.created_at.isoformat(),
+        }
+
+        await session.commit()
+
     await redis_client.xack(NOTIFICATION_STREAM_NAME, NOTIFICATION_GROUP_NAME, message_id)
 
-    realtime_payload = {
-        "notification_id": str(notification.id),
-        "event_type": notification.event_type,
-        "title": notification.title,
-        "detail": notification.detail,
-        "target_type": notification.target_type,
-        "target_id": str(notification.target_id) if notification.target_id else None,
-        "created_at": notification.created_at.isoformat(),
-    }
     try:
         for member_id in recipient_ids:
             await notification_manager.publish(member_id, realtime_payload)
     except Exception as e:
-        logger.warning(f"알림 실시간 발행 실패 후 넘어감(Notification ID: {notification.id}): {e}")
+        logger.warning(f"알림 실시간 발행 실패 후 넘어감(Notification ID: {realtime_payload['notification_id']}): {e}")
 
 async def run_notification_consumer():
     # XGROUP 생성 시도, 이미 존재하면 무시
