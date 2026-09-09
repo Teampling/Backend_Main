@@ -4,14 +4,11 @@ import logging
 
 from app.core.database import AsyncSessionDocker
 from app.core.redis import redis_client
+from app.modules.notification.constants import OUTBOX_BATCH_SIZE, NOTIFICATION_STREAM_NAME, OUTBOX_POLL_INTERVAL_SECONDS
 from app.modules.notification.repository import OutboxEventRepository
 
 
 logger = logging.getLogger(__name__)
-
-NOTIFICATION_STREAM_NAME = "notifications:stream"
-OUTBOX_POLL_INTERVAL_SECONDS = 1.0
-OUTBOX_BATCH_SIZE = 100
 
 async def run_outbox_relay():
     logger.info("Outbox relay 시작됨")

@@ -4,9 +4,40 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.modules.notification.models import OutboxEvent
-from app.shared.enums import NotificationEventType
+from app.modules.notification.models import OutboxEvent, Notification, NotificationRecipient
+from app.shared.enums import NotificationEventType, NotificationTargetType
 
+
+class NotificationRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def create(
+            self,
+            *,
+            event_type: NotificationEventType,
+            title: str,
+            detail: str | None,
+            target_type: NotificationTargetType,
+            target_id: UUID | None,
+            recipient_ids: list[UUID],
+    ) -> Notification:
+        notification = Notification(
+            event_type=event_type,
+            title=title,
+            detail=detail,
+            target_type=int(target_type.value),
+            target_id = target_id
+        )
+        self.session.add(notification)
+        await self.session.flush()
+
+        for member_id in dict.fromkeys(recipient_ids):
+            self.session.add(NotificationRecipient(notification_id=notification.id, member_id=member_id))
+
+        await self.session.commit()
+        await self.session.refresh(notification)
+        return notification
 
 class OutboxEventRepository:
     def __init__(self, session: AsyncSession):

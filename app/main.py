@@ -12,6 +12,7 @@ from app.core.exception_handler import register_exception_handlers
 from app.core.exceptions import AppError
 from app.core.logger import setup_logging
 from app.core.middleware import RequestIdMiddleware
+from app.modules.notification.consumer import run_notification_consumer
 from app.modules.notification.outbox_relay import run_outbox_relay
 from app.shared.schemas import ApiResponse
 from app.modules.skill.router import router as skill_router
@@ -36,10 +37,13 @@ from app.modules.chat.models import ChatRoom, ChatRoomMember, ChatMessage
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     outbox_relay_task = asyncio.create_task(run_outbox_relay())
+    consumer_task = asyncio.create_task(run_notification_consumer())
 
     yield
 
     outbox_relay_task.cancel()
+    consumer_task.cancel()
+    await asyncio.gather(outbox_relay_task, consumer_task, return_exceptions=True)
 
 class HealthOut(BaseModel):
     status: str = Field(example="ok")
