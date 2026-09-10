@@ -22,6 +22,7 @@ class NotificationRepository:
             detail: str | None,
             target_type: NotificationTargetType,
             target_id: UUID | None,
+            project_id: UUID | None,
             recipient_ids: list[UUID],
     ) -> Notification:
         notification = Notification(
@@ -29,7 +30,8 @@ class NotificationRepository:
             title=title,
             detail=detail,
             target_type=int(target_type.value),
-            target_id = target_id
+            target_id=target_id,
+            project_id=project_id,
         )
         self.session.add(notification)
         await self.session.flush()
@@ -125,6 +127,7 @@ class OutboxEventRepository:
             detail: str | None,
             target_type: int,
             target_id: UUID | None,
+            project_id: UUID | None,
             recipient_ids: list[UUID],
     ) -> OutboxEvent:
         event = OutboxEvent(
@@ -135,6 +138,7 @@ class OutboxEventRepository:
                 "detail": detail,
                 "target_type": int(target_type),
                 "target_id": str(target_id) if target_id else None,
+                "project_id": str(project_id) if project_id else None,
                 "recipient_ids": [str(member_id) for member_id in dict.fromkeys(recipient_ids)],
             },
         )

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>팀플링 - Teampling</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/auth.js"></script>
     <style>
         .notif-wrap { position: relative; display: inline-block; margin-right: 10px; vertical-align: middle; }
         .notif-bell { position: relative; background: none; border: none; font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 4px; }
@@ -157,6 +158,7 @@
         // ================= 알림 (Notification) =================
         let notifWs = null;
         let unreadCount = 0;
+        let notifCache = {};   // notification_id -> 알림 객체 (클릭 이동에 필요한 정보 보관)
 
         function authHeader() {
             return { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` };
@@ -195,11 +197,25 @@
             } catch (e) { list.innerHTML = '<div class="notif-empty">불러오기 실패</div>'; }
         }
 
+        const NOTIF_LABELS = {
+            notice_created: '📢 새 공지가 등록되었어요',
+            notice_updated: '📢 공지가 수정되었어요',
+            work_assigned: '✅ 새 작업이 배정되었어요',
+            work_status_changed: '🔄 작업 상태가 변경되었어요',
+            project_invited: '📨 프로젝트에 초대되었어요',
+            project_member_joined: '🙌 새 멤버가 합류했어요',
+            project_invitation_declined: '🙅 초대가 거절되었어요',
+            project_member_removed: '👋 프로젝트에서 제외되었어요',
+            project_leadership_transferred: '👑 리더가 위임되었어요',
+        };
+        function notifLabel(eventType) { return NOTIF_LABELS[eventType] || '🔔 새 알림'; }
+
         function notifItemHtml(n) {
+            const context = [n.title, n.detail].filter(Boolean).map(escapeHtml).join(' · ');
             return `
                 <div class="notif-item ${n.is_read ? '' : 'unread'}" onclick="onClickNotif('${n.notification_id}')">
-                    <div class="t">${escapeHtml(n.title)}</div>
-                    <div class="d">${escapeHtml(n.detail || '')}</div>
+                    <div class="t">${notifLabel(n.event_type)}</div>
+                    <div class="d">${context}</div>
                     <div class="m">${formatTime(n.created_at)}</div>
                 </div>`;
         }
@@ -208,6 +224,7 @@
             const list = document.getElementById('notif-list');
             if (!list) return;
             if (!items || !items.length) { list.innerHTML = '<div class="notif-empty">알림이 없습니다</div>'; return; }
+            items.forEach(n => { notifCache[n.notification_id] = n; });
             list.innerHTML = items.map(notifItemHtml).join('');
         }
 
@@ -216,15 +233,27 @@
             if (!list) return;
             const empty = list.querySelector('.notif-empty');
             if (empty) list.innerHTML = '';
+            notifCache[n.notification_id] = n;
             list.insertAdjacentHTML('afterbegin', notifItemHtml(n));
         }
 
         async function onClickNotif(id) {
             try {
                 await fetch(`/notifications/read/one/${id}`, { method: 'PATCH', headers: authHeader() });
-                await loadUnreadCount();
-                await loadNotifList();
             } catch (e) { /* ignore */ }
+            await loadUnreadCount();
+            const url = notifTargetUrl(notifCache[id]);
+            if (url) { location.href = url; return; }   // 이동하면 목록 갱신 불필요
+            await loadNotifList();
+        }
+
+        function notifTargetUrl(n) {
+            if (!n || !n.event_type) return null;
+            if (n.event_type.startsWith('notice') && n.project_id && n.target_id)
+                return `/static/notice-detail.html?project_id=${n.project_id}&notice_id=${n.target_id}`;
+            if (n.event_type.startsWith('project') && n.target_id)
+                return `/static/project-detail.html?id=${n.target_id}`;
+            return null;
         }
 
         async function markAllRead() {

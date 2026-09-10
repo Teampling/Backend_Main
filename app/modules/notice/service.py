@@ -64,6 +64,7 @@ class NoticeService:
             NotificationEvents.notice_created(
                 self.session,
                 notice_id=saved.id,
+                project_id=saved.project_id,
                 title=saved.title,
                 detail=saved.detail,
                 recipient_ids=recipient_ids,

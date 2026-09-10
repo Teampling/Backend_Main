@@ -13,6 +13,7 @@ class NotificationEvents:
             session: AsyncSession,
             *,
             notice_id: UUID,
+            project_id: UUID,
             title: str,
             detail: str | None,
             recipient_ids: list[UUID],
@@ -26,5 +27,6 @@ class NotificationEvents:
             detail=detail,
             target_type=NotificationTargetType.NOTICE,
             target_id=notice_id,
+            project_id=project_id,
             recipient_ids=recipient_ids,
         )

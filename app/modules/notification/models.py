@@ -54,6 +54,12 @@ class Notification(BaseModel, table=True):
         description="알림 대상 고유키"
     )
 
+    project_id: UUID | None = Field(
+        default=None,
+        nullable=True,
+        description="알림이 속한 프로젝트 고유키"
+    )
+
 class NotificationRecipient(BaseModel, table=True):
     __tablename__ = "notification_recipients"
 

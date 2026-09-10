@@ -35,6 +35,7 @@ async def _handle_message(message_id: str, fields: dict):
             detail=payload["detail"],
             target_type=NotificationTargetType(payload["target_type"]),
             target_id=UUID(payload["target_id"]) if payload["target_id"] else None,
+            project_id=UUID(payload["project_id"]) if payload.get("project_id") else None,
             recipient_ids=recipient_ids,
         )
 
@@ -45,6 +46,7 @@ async def _handle_message(message_id: str, fields: dict):
             "detail": notification.detail,
             "target_type": notification.target_type,
             "target_id": str(notification.target_id) if notification.target_id else None,
+            "project_id": str(notification.project_id) if notification.project_id else None,
             "created_at": notification.created_at.isoformat(),
         }
 

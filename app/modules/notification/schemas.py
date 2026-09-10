@@ -26,6 +26,7 @@ class NotificationOut(SQLModel):
     detail: str | None = Field(default=None, description="알림 내용")
     target_type: int = Field(description="알림 대상 유형(0: 프로젝트, 1: 작업, 2: 공지, 3: 초대, 4: 기타)")
     target_id: UUID | None = Field(default=None, description="알림 대상 고유키")
+    project_id: UUID | None = Field(default=None, description="알림이 속한 프로젝트 고유키")
     is_read: bool = Field(description="읽음 여부")
     read_at: datetime | None = Field(default=None, description="읽은 시각")
     created_at: datetime = Field(description="생성 일시")
@@ -56,6 +57,7 @@ class NotificationOut(SQLModel):
             detail=notification.detail,
             target_type=notification.target_type,
             target_id=notification.target_id,
+            project_id=notification.project_id,
             is_read=recipient.read_at is not None,
             read_at=recipient.read_at,
             created_at=notification.created_at,
