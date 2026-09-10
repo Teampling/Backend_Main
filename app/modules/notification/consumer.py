@@ -14,7 +14,7 @@ from app.modules.notification.constants import (
     CONSUMER_READ_COUNT,
     CONSUMER_BLOCK_MS,
 )
-from app.modules.notification.manager import notification_manager
+from app.modules.notification.realtime import notification_manager
 from app.modules.notification.repository import NotificationRepository
 from app.shared.enums import NotificationTargetType, NotificationEventType
 

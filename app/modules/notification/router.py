@@ -2,9 +2,12 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Path, Query
+from starlette.websockets import WebSocket, WebSocketDisconnect
 
+from app.core.security import decode_token
 from app.modules.member.dependencies import CurrentMemberDep
 from app.modules.notification.dependencies import NotificationServiceDep
+from app.modules.notification.realtime import notification_manager
 from app.modules.notification.schemas import NotificationOut, UnreadCountOut
 from app.shared.schemas import ApiResponse, PageOut
 
@@ -41,7 +44,6 @@ async def list_my_notifications(
         ),
     )
 
-
 @router.get(
     path="/count/unread",
     response_model=ApiResponse[UnreadCountOut],
@@ -58,7 +60,6 @@ async def get_unread_count(
         message="안 읽은 알림 개수 조회 성공",
         data=UnreadCountOut(count=count),
     )
-
 
 @router.patch(
     path="/read/all",
@@ -77,7 +78,6 @@ async def mark_all_notifications_read(
         data=None,
     )
 
-
 @router.patch(
     path="/read/one/{notification_id}",
     response_model=ApiResponse[None],
@@ -95,3 +95,25 @@ async def mark_notification_read(
         message="알림 읽음 처리 성공",
         data=None,
     )
+
+@router.websocket("/ws")
+async def notification_websocket(
+        websocket: WebSocket,
+        token: Annotated[str, Query(description="WebSocket 인증 토큰")],
+):
+    await websocket.accept()
+
+    try:
+        payload = decode_token(token)
+        member_id = UUID(payload["sub"])
+    except Exception:
+        await websocket.close(code=1008)  # Policy Violation (인증 실패)
+        return
+
+    await notification_manager.connect(member_id, websocket)
+
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        notification_manager.disconnect(member_id, websocket)

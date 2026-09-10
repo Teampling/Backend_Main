@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>팀플링 - Teampling</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .notif-wrap { position: relative; display: inline-block; margin-right: 10px; vertical-align: middle; }
+        .notif-bell { position: relative; background: none; border: none; font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 4px; }
+        .notif-badge { position: absolute; top: -2px; right: -2px; background: #dc2626; color: #fff; font-size: 11px; min-width: 16px; height: 16px; border-radius: 999px; padding: 0 4px; line-height: 16px; text-align: center; box-sizing: border-box; }
+        .notif-panel { position: absolute; right: 0; top: 130%; width: 340px; max-height: 440px; overflow-y: auto; background: #fff; border: 1px solid #e2e2e2; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 1000; }
+        .notif-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid #eee; font-weight: 700; position: sticky; top: 0; background: #fff; }
+        .notif-allread { background: none; border: none; color: #3b82f6; font-size: 12px; cursor: pointer; }
+        .notif-item { padding: 12px 14px; border-bottom: 1px solid #f2f2f2; cursor: pointer; }
+        .notif-item:hover { background: #f8fafc; }
+        .notif-item.unread { background: #eff6ff; }
+        .notif-item .t { font-weight: 600; font-size: 14px; }
+        .notif-item .d { font-size: 12px; color: #666; margin-top: 2px; }
+        .notif-item .m { font-size: 11px; color: #999; margin-top: 4px; }
+        .notif-empty { padding: 24px; text-align: center; color: #999; font-size: 13px; }
+    </style>
 </head>
 <body>
     <header>
@@ -40,21 +55,13 @@
                         localStorage.setItem('user_id', user.id);
                         
                         renderHeader(user.username, user.profile_url);
-                        
+                        initNotifications();
+
                         const contentDiv = document.getElementById('content');
                         contentDiv.classList.remove('welcome-msg');
                         contentDiv.innerHTML = `
                             <div class="dashboard">
                                 <section class="dashboard-section">
-                                    <div class="section-header">
-                                        <h2>새 알림</h2>
-                                    </div>
-                                    <div class="placeholder-box" style="padding: 1.5rem; border-style: solid; border-width: 1px; background: #fff; text-align: left;">
-                                        <p>새로운 알림 기능 준비 중입니다.</p>
-                                    </div>
-                                </section>
-
-                                <section class="dashboard-section" style="margin-top: 2rem;">
                                     <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                         <h2>내 프로젝트</h2>
                                         <button class="btn-sm btn-primary" onclick="location.href='/static/project-create.html'" style="width: auto; margin-top: 0;">+ 새 프로젝트</button>
@@ -126,6 +133,13 @@
                 : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
             navLinks.innerHTML = `
+                <div class="notif-wrap">
+                    <button class="notif-bell" onclick="toggleNotifPanel(event)">🔔<span id="notif-badge" class="notif-badge" style="display:none;">0</span></button>
+                    <div id="notif-panel" class="notif-panel" style="display:none;">
+                        <div class="notif-head"><span>알림</span><button class="notif-allread" onclick="markAllRead()">모두 읽음</button></div>
+                        <div id="notif-list"><div class="notif-empty">불러오는 중...</div></div>
+                    </div>
+                </div>
                 <div class="user-profile-info" onclick="location.href='/static/profile.html'" style="cursor: pointer;">
                     <img src="${profileImg}" alt="profile" class="header-profile-img">
                     <span class="user-nickname">${displayName}</span>
@@ -135,9 +149,121 @@
         }
 
         function logout() {
+            if (notifWs) { notifWs.close(); notifWs = null; }
             localStorage.clear();
             location.reload();
         }
+
+        // ================= 알림 (Notification) =================
+        let notifWs = null;
+        let unreadCount = 0;
+
+        function authHeader() {
+            return { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` };
+        }
+
+        async function initNotifications() {
+            await loadUnreadCount();
+            await loadNotifList();
+            connectNotifWs();
+        }
+
+        function setBadge(n) {
+            unreadCount = Math.max(0, n);
+            const b = document.getElementById('notif-badge');
+            if (!b) return;
+            if (unreadCount > 0) { b.style.display = ''; b.textContent = unreadCount > 99 ? '99+' : unreadCount; }
+            else { b.style.display = 'none'; }
+        }
+
+        async function loadUnreadCount() {
+            try {
+                const res = await fetch('/notifications/count/unread', { headers: authHeader() });
+                if (!res.ok) return;
+                const { data } = await res.json();
+                setBadge(data.count);
+            } catch (e) { /* ignore */ }
+        }
+
+        async function loadNotifList() {
+            const list = document.getElementById('notif-list');
+            if (!list) return;
+            try {
+                const res = await fetch('/notifications?page=1&size=30', { headers: authHeader() });
+                const { data } = await res.json();
+                renderNotifList(data.items);
+            } catch (e) { list.innerHTML = '<div class="notif-empty">불러오기 실패</div>'; }
+        }
+
+        function notifItemHtml(n) {
+            return `
+                <div class="notif-item ${n.is_read ? '' : 'unread'}" onclick="onClickNotif('${n.notification_id}')">
+                    <div class="t">${escapeHtml(n.title)}</div>
+                    <div class="d">${escapeHtml(n.detail || '')}</div>
+                    <div class="m">${formatTime(n.created_at)}</div>
+                </div>`;
+        }
+
+        function renderNotifList(items) {
+            const list = document.getElementById('notif-list');
+            if (!list) return;
+            if (!items || !items.length) { list.innerHTML = '<div class="notif-empty">알림이 없습니다</div>'; return; }
+            list.innerHTML = items.map(notifItemHtml).join('');
+        }
+
+        function prependNotif(n) {
+            const list = document.getElementById('notif-list');
+            if (!list) return;
+            const empty = list.querySelector('.notif-empty');
+            if (empty) list.innerHTML = '';
+            list.insertAdjacentHTML('afterbegin', notifItemHtml(n));
+        }
+
+        async function onClickNotif(id) {
+            try {
+                await fetch(`/notifications/read/one/${id}`, { method: 'PATCH', headers: authHeader() });
+                await loadUnreadCount();
+                await loadNotifList();
+            } catch (e) { /* ignore */ }
+        }
+
+        async function markAllRead() {
+            try {
+                await fetch('/notifications/read/all', { method: 'PATCH', headers: authHeader() });
+                await loadUnreadCount();
+                await loadNotifList();
+            } catch (e) { /* ignore */ }
+        }
+
+        function toggleNotifPanel(e) {
+            e.stopPropagation();
+            const p = document.getElementById('notif-panel');
+            const show = p.style.display === 'none';
+            p.style.display = show ? '' : 'none';
+            if (show) loadNotifList();
+        }
+
+        document.addEventListener('click', (e) => {
+            const wrap = document.querySelector('.notif-wrap');
+            const p = document.getElementById('notif-panel');
+            if (p && wrap && !wrap.contains(e.target)) p.style.display = 'none';
+        });
+
+        function connectNotifWs() {
+            const token = localStorage.getItem('access_token');
+            if (!token) return;
+            if (notifWs) notifWs.close();
+            const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+            notifWs = new WebSocket(`${scheme}://${location.host}/notifications/ws?token=${token}`);
+            notifWs.onmessage = (ev) => {
+                const n = JSON.parse(ev.data);
+                setBadge(unreadCount + 1);   // 안읽음 수 즉시 증가
+                prependNotif(n);              // 드롭다운 맨 위에 즉시 추가
+            };
+        }
+
+        function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function formatTime(iso) { try { return new Date(iso).toLocaleString('ko-KR'); } catch (e) { return iso; } }
 
         function scrollSlider(id, direction) {
             const slider = document.getElementById(id);
