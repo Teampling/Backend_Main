@@ -12,11 +12,18 @@ if TYPE_CHECKING:
     from app.modules.project.models import Project
     from app.modules.member.models import Member
 
+class WorkAssignee(BaseModel, table=True):
+    __tablename__ = "work_assignees"
+
+    work_id: UUID = Field(foreign_key="works.id", primary_key=True)
+    member_id: UUID = Field(foreign_key="members.id", primary_key=True)
+
 class Work(BaseModel, table=True):
     __tablename__ = "works"
 
     project: "Project" = Relationship(back_populates="works")
     author: "Member" = Relationship(back_populates="created_works")
+    assignees: list["Member"] = Relationship(link_model=WorkAssignee)
 
     id: UUID = Field(
         default_factory=uuid4,
