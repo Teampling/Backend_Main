@@ -1,7 +1,7 @@
 """add_last_read_message_id_to_chat_room_member
 
 Revision ID: a930eb13180a
-Revises: d8b2114a1c79
+Revises: 7e51810ce786
 Create Date: 2026-09-04 22:11:01.816890
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'a930eb13180a'
-down_revision: Union[str, Sequence[str], None] = 'd8b2114a1c79'
+down_revision: Union[str, Sequence[str], None] = '7e51810ce786'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

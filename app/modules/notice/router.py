@@ -85,7 +85,7 @@ async def get_project_notice(
     # 해당 공지가 해당 프로젝트의 것인지 확인
     if notice.project_id != project.id:
         from app.core.exceptions import AppError
-        raise AppError.not_found("해당 프로젝트에서 해당 공지를 찾을 수 없습니다.")
+        raise AppError.not_found("해당 프로젝트에서 해당 공지")
         
     return ApiResponse.success(
         code="NOTICE_FETCHED",
@@ -109,7 +109,7 @@ async def update_project_notice(
     notice = await service.get(notice_id)
     if notice.project_id != project.id:
         from app.core.exceptions import AppError
-        raise AppError.not_found("해당 프로젝트에서 해당 공지를 찾을 수 없습니다.")
+        raise AppError.not_found("해당 프로젝트에서 해당 공지")
 
     updated = await service.update(
         target_notice_id=notice_id,
@@ -137,7 +137,7 @@ async def delete_project_notice(
     notice = await service.get(notice_id, include_deleted=True)
     if notice.project_id != project.id:
         from app.core.exceptions import AppError
-        raise AppError.not_found("해당 프로젝트에서 해당 공지를 찾을 수 없습니다.")
+        raise AppError.not_found("해당 프로젝트에서 해당 공지")
 
     await service.delete(
         target_notice_id=notice_id,
@@ -164,7 +164,7 @@ async def restore_project_notice(
     notice = await service.get(notice_id, include_deleted=True)
     if notice.project_id != project.id:
         from app.core.exceptions import AppError
-        raise AppError.not_found("해당 프로젝트에서 해당 공지를 찾을 수 없습니다.")
+        raise AppError.not_found("해당 프로젝트에서 해당 공지")
 
     restored = await service.restore(notice_id)
     return ApiResponse.success(

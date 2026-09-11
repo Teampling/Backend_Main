@@ -47,7 +47,7 @@ class FavoriteService:
     async def delete(self, project_id: UUID, member_id: UUID) -> None:
         favorite = await self.repository.get_by_project_member(project_id, member_id)
         if not favorite:
-            raise AppError.not_found("즐겨찾기하지 않은 프로젝트입니다.")
+            raise AppError.not_found("해당 프로젝트를 즐겨찾기 한 이력")
 
         try:
             await self.repository.delete_favorite(favorite)

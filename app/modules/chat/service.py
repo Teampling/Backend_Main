@@ -27,7 +27,7 @@ class ConnectionManager:
             self.active_connections[room_id] = set()
             # 해당 방에 대한 첫 연결이면 Redis 구독 시작
             self.sub_tasks[room_id] = asyncio.create_task(self._subscribe_room(room_id))
-        
+
         self.active_connections[room_id].add(websocket)
 
     def disconnect(self, room_id: UUID, websocket: WebSocket):
@@ -45,7 +45,7 @@ class ConnectionManager:
         pubsub = redis_client.pubsub()
         channel_name = f"chat:{room_id}"
         await pubsub.subscribe(channel_name)
-        
+
         try:
             async for message in pubsub.listen():
                 if message["type"] == "message":
@@ -75,7 +75,8 @@ class ConnectionManager:
         """프로젝트 제어 채널에 발행 (방 목록 변경 알림용)"""
         await redis_client.publish(f"project:{project_id}", json.dumps(message))
 
-    async def subscribe_project_events(self, project_id: UUID, member_id: UUID, websocket: WebSocket, room_ids: set[UUID]):
+    async def subscribe_project_events(self, project_id: UUID, member_id: UUID, websocket: WebSocket,
+                                       room_ids: set[UUID]):
         pubsub = redis_client.pubsub()
         channel = f"project:{project_id}"
         await pubsub.subscribe(channel)
@@ -158,6 +159,7 @@ class ConnectionManager:
         if new_room is not None:
             await self.enter_presence(new_room, member_id, username)
 
+
 manager = ConnectionManager()
 
 class ChatService:
@@ -195,7 +197,7 @@ class ChatService:
             # 멤버 추가
             await self.repository.add_member_to_room(room.id, member_a)
             await self.repository.add_member_to_room(room.id, member_b)
-            
+
             await self.session.commit()
             # members가 포함된 상태로 다시 조회
             room = await self.repository.get_room_by_id(room.id)
@@ -209,7 +211,7 @@ class ChatService:
             room = await self.repository.get_room_by_id(room_id)
             if not room:
                 raise AppError.not_found("채팅방을 찾을 수 없습니다.")
-            
+
             if room.type == ChatRoomType.GROUP:
                 # 단체방은 프로젝트 멤버면 자동 참여
                 await self.repository.add_member_to_room(room_id, sender_id)
@@ -230,7 +232,7 @@ class ChatService:
         """채팅 이력을 조회합니다."""
         if not await self.repository.is_room_member(room_id, member_id):
             raise AppError.forbidden("채팅방 멤버가 아닙니다.")
-        
+
         return await self.repository.get_messages(room_id, limit, offset)
 
     async def list_rooms(self, project_id: UUID, member_id: UUID) -> list[ChatRoomOut]:
@@ -258,14 +260,14 @@ class ChatService:
         """채팅방을 삭제합니다."""
         room = await self.repository.get_room_by_id(room_id)
         if not room:
-            raise AppError.not_found("채팅방을 찾을 수 없습니다.")
-        
+            raise AppError.not_found("채팅방")
+
         if room.type == ChatRoomType.GROUP:
             raise AppError.bad_request("단체 채팅방은 삭제할 수 없습니다.")
-        
+
         if not await self.repository.is_room_member(room_id, member_id):
             raise AppError.forbidden("채팅방 삭제 권한이 없습니다.")
-            
+
         await self.repository.delete_room(room)
         await self.session.commit()
 
