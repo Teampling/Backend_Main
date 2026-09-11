@@ -65,4 +65,5 @@ def downgrade() -> None:
     op.drop_table('chat_room_members')
     op.drop_table('chat_messages')
     op.drop_table('chat_rooms')
+    sa.Enum(name='chatroomtype').drop(op.get_bind(), checkfirst=True)
     # ### end Alembic commands ###

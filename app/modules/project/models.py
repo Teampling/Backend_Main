@@ -93,12 +93,12 @@ class Project(BaseModel, table=True):
     )
 
     start_date: datetime = Field(
-        nullable=False,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
         description="프로젝트 시작 일자"
     )
 
     end_date: datetime = Field(
-        nullable=False,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
         description="프로젝트 종료 일자"
     )
 

@@ -44,61 +44,6 @@
             font-size: 1.1rem;
             margin-bottom: 2rem;
         }
-        .dm-section {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 1.5rem;
-            text-align: left;
-            border: 1px solid #e9ecef;
-        }
-        .dm-section label {
-            display: block;
-            font-weight: 700;
-            color: #495057;
-            margin-bottom: 0.8rem;
-            font-size: 0.9rem;
-        }
-        /* 커스텀 드롭다운 스타일 */
-        .custom-select {
-            width: 100%;
-            padding: 0.8rem 1rem;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            font-size: 1rem;
-            background-color: #fff;
-            cursor: pointer;
-            transition: all 0.2s;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236c757d' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 1rem center;
-        }
-        .custom-select:focus {
-            border-color: #6f42c1;
-            outline: none;
-            box-shadow: 0 0 0 4px rgba(111, 66, 193, 0.1);
-        }
-        .btn-dm {
-            width: 100%;
-            padding: 1rem;
-            background: #6f42c1;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 700;
-            cursor: pointer;
-            margin-top: 1.5rem;
-            transition: transform 0.2s, background 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-        .btn-dm:hover {
-            background: #59359a;
-            transform: translateY(-2px);
-        }
         .btn-back {
             background: none;
             border: none;
@@ -124,20 +69,10 @@
                 <h1 id="user-name" class="profile-name">사용자</h1>
                 <p id="user-org" class="profile-org">소속 정보 없음</p>
 
-                <div class="dm-section">
-                    <label for="project-select">대화할 프로젝트 컨텍스트 선택</label>
-                    <select id="project-select" class="custom-select">
-                        <option value="" disabled selected>프로젝트를 불러오는 중...</option>
-                    </select>
-                    <p style="font-size: 0.8rem; color: #868e96; margin-top: 0.8rem; line-height: 1.4;">
-                        💬 선택한 프로젝트 내에서 1:1 채팅방이 생성되거나 기존 대화로 이동합니다.
-                    </p>
-                </div>
+                <p style="font-size: 0.85rem; color: #868e96; margin-top: 1rem;">
+                    💬 DM은 함께 참여 중인 프로젝트 페이지의 멤버 목록에서 시작할 수 있습니다.
+                </p>
 
-                <button id="btn-start-dm" class="btn-dm">
-                    <span>✉️</span> DM 시작하기
-                </button>
-                
                 <button onclick="history.back()" class="btn-back">이전 페이지로 돌아가기</button>
             </div>
         </div>
@@ -155,7 +90,6 @@
             }
             setupHeader();
             await loadTargetUserInfo();
-            await loadMyProjects();
         });
 
         function setupHeader() {
@@ -192,60 +126,6 @@
                 alert('사용자 정보를 불러오는데 실패했습니다.');
             }
         }
-
-        async function loadMyProjects() {
-            const token = localStorage.getItem('access_token');
-            try {
-                const response = await fetch('/project/me', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const result = await response.json();
-                const projects = result.data.items;
-                
-                const select = document.getElementById('project-select');
-                if (projects.length === 0) {
-                    select.innerHTML = '<option value="" disabled>참여 중인 프로젝트가 없습니다.</option>';
-                    document.getElementById('btn-start-dm').disabled = true;
-                    return;
-                }
-
-                select.innerHTML = projects.map(p => `
-                    <option value="${p.id}">${p.name}</option>
-                `).join('');
-                
-            } catch (e) {
-                console.error('프로젝트 목록 로드 실패', e);
-            }
-        }
-
-        document.getElementById('btn-start-dm').addEventListener('click', async () => {
-            const token = localStorage.getItem('access_token');
-            const projectId = document.getElementById('project-select').value;
-            
-            try {
-                const response = await fetch(`/chat/projects/${projectId}/rooms/direct`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        project_id: projectId,
-                        target_member_id: targetMemberId
-                    })
-                });
-                
-                const room = await response.json();
-                if (response.ok) {
-                    // 성공 시 해당 프로젝트 페이지의 채팅방으로 이동
-                    location.href = `/static/project-detail.html?id=${projectId}&chat_room_id=${room.id}`;
-                } else {
-                    alert('채팅방 생성 실패: ' + (room.message || '오류가 발생했습니다.'));
-                }
-            } catch (e) {
-                alert('통신 오류 발생');
-            }
-        });
 
         function logout() {
             localStorage.clear();

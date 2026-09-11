@@ -155,7 +155,7 @@ async def get_project_work(
     # 해당 작업이 해당 프로젝트의 것인지 확인
     if work.project_id != project.id:
         from app.core.exceptions import AppError
-        raise AppError.not_found("해당 프로젝트에서 해당 작업을 찾을 수 없습니다.")
+        raise AppError.not_found("해당 프로젝트에서 해당 작업")
         
     return ApiResponse.success(
         code="WORK_FETCHED",

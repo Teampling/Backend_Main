@@ -16,7 +16,7 @@ class NoticeService:
     async def get(self, notice_id: UUID, *, include_deleted: bool = False) -> Notice:
         notice = await self.repository.get_by_id(notice_id, include_deleted=include_deleted)
         if not notice:
-            raise AppError.not_found("해당 공지를 찾을 수 없습니다.")
+            raise AppError.not_found("해당 공지")
         return notice
 
     async def list(
@@ -86,6 +86,8 @@ class NoticeService:
 
         try:
             if hard:
+                if not notice.is_deleted:
+                    raise AppError.bad_request("삭제되지 않은 공지입니다.")
                 await self.repository.hard_delete(notice)
             else:
                 if notice.is_deleted:

@@ -609,15 +609,24 @@
                 const mResult = await mResponse.json();
                 const members = mResult.data;
 
+                const myId = localStorage.getItem('user_id');
                 const memberGrid = document.getElementById('proj-members-list');
                 memberGrid.innerHTML = members.map(m => `
-                    <div class="user-profile-info" style="padding: 1rem; border: 1px solid #eee; border-radius: 8px; cursor: pointer; transition: background 0.2s;" 
+                    <div class="user-profile-info" style="padding: 1rem; border: 1px solid #eee; border-radius: 8px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: space-between;"
                          onclick="openMemberProfile('${m.member.id}', '${m.member.username}', '${m.member.profile_url || ''}', '${m.member.organization || ''}')">
-                        <img src="${m.member.profile_url || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}" class="header-profile-img">
-                        <div>
-                            <div style="font-weight: bold;">${m.member.username} ${m.is_leader ? '👑' : ''}</div>
-                            <div style="font-size: 0.8rem; color: #6c757d;">${m.member.organization || ''}</div>
+                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                            <img src="${m.member.profile_url || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}" class="header-profile-img">
+                            <div>
+                                <div style="font-weight: bold;">${m.member.username} ${m.is_leader ? '👑' : ''}</div>
+                                <div style="font-size: 0.8rem; color: #6c757d;">${m.member.organization || ''}</div>
+                            </div>
                         </div>
+                        ${m.member.id !== myId ? `
+                            <button onclick="event.stopPropagation(); startDirectChat('${m.member.id}', '${m.member.username}')"
+                                    style="background: #6f42c1; color: #fff; border: none; border-radius: 6px; padding: 0.4rem 0.7rem; font-size: 0.8rem; cursor: pointer; flex-shrink: 0;">
+                                ✉️ DM
+                            </button>
+                        ` : ''}
                     </div>
                 `).join('');
 
@@ -627,6 +636,31 @@
         }
 
         // --- Chat Management JS ---
+        async function startDirectChat(targetMemberId, targetUsername) {
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/chat/projects/${currentProjectId}/rooms/direct`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ target_member_id: targetMemberId })
+                });
+
+                const room = await response.json();
+                if (response.ok) {
+                    switchTab('chat');
+                    await loadChatRooms();
+                    selectChatRoom(room.id, targetUsername);
+                } else {
+                    alert('채팅방 생성 실패: ' + (room.message || '오류가 발생했습니다.'));
+                }
+            } catch (e) {
+                alert('통신 오류 발생');
+            }
+        }
+
         async function loadChatRooms() {
             const token = localStorage.getItem('access_token');
             try {
