@@ -115,6 +115,7 @@
                             <p>대화를 시작하려면 왼쪽 목록에서 방을 선택하세요.</p>
                         </div>
                     </div>
+                    <div id="chat-typing" class="chat-typing"></div>
                     <form id="chat-form" class="chat-input-area" style="display: none;">
                         <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." autocomplete="off">
                         <button type="submit" id="btn-send-chat">전송</button>
@@ -244,9 +245,12 @@
         let selectedUsers = [];
         let isProjectLeader = false;
         let projectNotices = [];
-        let chatSocket = null;
+        let projectSocket = null;
         let currentRoomId = null;
         let chatRooms = [];
+        let wasConnected = false;      // 첫 연결 / 재연결 구분
+        let isManualClose = false;     // 의도적 종료 시 재연결 방지
+        let reconnectDelay = 2000;     // 재연결 대기 시간 (backoff)
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!currentProjectId) {
@@ -667,8 +671,10 @@
                 const response = await fetch(`/chat/projects/${currentProjectId}/rooms`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                chatRooms = await response.json();
+                const result = await response.json();
+                chatRooms = result.data;
                 renderChatRooms();
+                connectProjectSocket();
             } catch (e) {
                 console.error('채팅방 로드 실패', e);
             }
@@ -681,11 +687,13 @@
                 return;
             }
 
-            // 1. 단체 채팅방을 상단으로 정렬 (group 타입이 앞에 오도록)
+            // 1. 단체 채팅방은 상단 고정, 그 외에는 마지막 메시지 시각 기준 최근순 정렬
             const sortedRooms = [...chatRooms].sort((a, b) => {
                 if (a.type === 'group' && b.type !== 'group') return -1;
                 if (a.type !== 'group' && b.type === 'group') return 1;
-                return 0;
+                const aTime = a.last_message ? new Date(a.last_message.created_at).getTime() : 0;
+                const bTime = b.last_message ? new Date(b.last_message.created_at).getTime() : 0;
+                return bTime - aTime;
             });
 
             const myId = localStorage.getItem('user_id');
@@ -705,15 +713,23 @@
                     }
                 }
 
+                // 마지막 메시지 미리보기 (없으면 기본 라벨)
+                const preview = room.last_message
+                    ? escapeHtml(room.last_message.content)
+                    : (room.type === 'group' ? '단체 채팅방' : '1:1 채팅');
+                const previewTime = room.last_message ? formatPreviewTime(room.last_message.created_at) : '';
+
                 return `
                     <div class="chat-room-item ${currentRoomId === room.id ? 'active' : ''}" onclick="selectChatRoom('${room.id}', '${displayName}')">
                         <div class="header-profile-img" style="width: 40px; height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #e9ecef; overflow: hidden;">
                             ${displayIcon ? displayIcon : `<img src="${displayImg}" style="width: 100%; height: 100%; object-fit: cover;">`}
                         </div>
-                        <div class="chat-room-info" style="flex: 1;">
+                        <div class="chat-room-info" style="flex: 1; min-width: 0;">
                             <h4>${displayName}</h4>
-                            <p>${room.type === 'group' ? '단체 채팅방' : '1:1 채팅'}</p>
+                            <p>${preview}</p>
                         </div>
+                        ${previewTime ? `<span class="chat-room-time">${previewTime}</span>` : ''}
+                        ${room.unread_count > 0 ? `<span class="unread-badge">${room.unread_count > 99 ? '99+' : room.unread_count}</span>` : ''}
                         ${room.type === 'direct' ? `
                             <button onclick="event.stopPropagation(); deleteChatRoom('${room.id}')" 
                                     style="background: none; border: none; color: #adb5bd; cursor: pointer; padding: 5px; font-size: 1.2rem;">
@@ -737,8 +753,9 @@
                 
                 if (response.ok) {
                     if (currentRoomId === roomId) {
+                        // 프로젝트 소켓은 유지, 이 방만 보지 않도록 blur
+                        sendBlur();
                         currentRoomId = null;
-                        if (chatSocket) chatSocket.close();
                         document.getElementById('chat-header').innerText = '채팅방을 선택해주세요';
                         document.getElementById('chat-messages').innerHTML = '<div class="placeholder-box" style="border: none; background: transparent;"><p>대화를 시작하려면 왼쪽 목록에서 방을 선택하세요.</p></div>';
                         document.getElementById('chat-form').style.display = 'none';
@@ -754,24 +771,24 @@
 
         async function selectChatRoom(roomId, roomName) {
             if (currentRoomId === roomId) return;
-            
-            // 기존 소켓 종료
-            if (chatSocket) {
-                chatSocket.close();
-            }
 
             currentRoomId = roomId;
+            // 이전 방의 타이핑 상태 초기화
+            typingUsers = {};
+            renderTyping();
+            clearTimeout(typingTimer);
+            amTyping = false;
             document.getElementById('chat-header').innerText = roomName;
             document.getElementById('chat-messages').innerHTML = '<p style="text-align: center; color: #adb5bd; padding: 1rem;">메시지 로딩 중...</p>';
             document.getElementById('chat-form').style.display = 'flex';
-            
+
             renderChatRooms(); // 목록 상태 업데이트 (active)
-            
+
             // 1. 메시지 이력 로드
             await loadChatHistory(roomId);
-            
-            // 2. WebSocket 연결
-            connectWebSocket(roomId);
+
+            // 2. 서버에 "이 방을 보고 있음" 알림 (재연결 없이 focus만 전송)
+            sendFocus(roomId);
         }
 
         async function loadChatHistory(roomId) {
@@ -780,41 +797,191 @@
                 const response = await fetch(`/chat/rooms/${roomId}/messages?limit=50`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const messages = await response.json();
+                const result = await response.json();
+                const messages = result.data;
                 const container = document.getElementById('chat-messages');
                 container.innerHTML = '';
-                
+
+                // API는 최신순(desc)으로 내려주므로 messages[0]이 가장 최근 메시지
+                if (messages.length > 0) {
+                    markAsRead(roomId, messages[0].id);
+                }
+
                 // 역순으로 렌더링 (최신이 위로 오는 API라면 뒤집기 필요)
                 messages.reverse().forEach(msg => {
                     appendMessage(msg);
                 });
-                
+
                 scrollToBottom();
             } catch (e) {
                 console.error('이력 로드 실패', e);
             }
         }
 
-        function connectWebSocket(roomId) {
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatPreviewTime(iso) {
+            const date = new Date(iso);
+            const now = new Date();
+            const isToday = date.toDateString() === now.toDateString();
+            if (isToday) {
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            return date.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+        }
+
+        // 현재 타이핑 중인 사용자 (member_id -> username)
+        let typingUsers = {};
+
+        function showTyping(memberId, username, isTyping) {
+            if (isTyping) {
+                typingUsers[memberId] = username;
+            } else {
+                delete typingUsers[memberId];
+            }
+            renderTyping();
+        }
+
+        function renderTyping() {
+            const el = document.getElementById('chat-typing');
+            const names = Object.values(typingUsers);
+            if (names.length === 0) {
+                el.textContent = '';
+            } else if (names.length === 1) {
+                el.textContent = `${names[0]}님이 입력 중...`;
+            } else {
+                el.textContent = `${names.length}명이 입력 중...`;
+            }
+        }
+
+        async function markAsRead(roomId, messageId) {
+            const token = localStorage.getItem('access_token');
+            try {
+                await fetch(`/chat/rooms/${roomId}/read/${messageId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                // 로컬 목록의 안읽은 개수를 즉시 0으로 반영
+                const room = chatRooms.find(r => r.id === roomId);
+                if (room && room.unread_count > 0) {
+                    room.unread_count = 0;
+                    renderChatRooms();
+                }
+            } catch (e) {
+                console.error('읽음 처리 실패', e);
+            }
+        }
+
+        function connectProjectSocket() {
+            // 이미 연결(또는 연결 중)이면 재사용
+            if (projectSocket && (projectSocket.readyState === WebSocket.OPEN || projectSocket.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
             const token = localStorage.getItem('access_token');
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/chat/ws/${roomId}?token=${token}`;
-            
-            chatSocket = new WebSocket(wsUrl);
-            
-            chatSocket.onmessage = (event) => {
-                const msg = JSON.parse(event.data);
-                appendMessage(msg);
-                scrollToBottom();
-            };
-            
-            chatSocket.onclose = () => {
-                console.log('WebSocket disconnected');
+            const wsUrl = `${protocol}//${window.location.host}/chat/ws/projects/${currentProjectId}?token=${token}`;
+
+            projectSocket = new WebSocket(wsUrl);
+
+            projectSocket.onopen = () => {
+                reconnectDelay = 2000;
+                if (wasConnected) {
+                    // 재연결 → 끊긴 동안의 공백 복구 (DB 최신 상태로 통째 재조회)
+                    loadChatRooms();
+                    if (currentRoomId) loadChatHistory(currentRoomId);
+                }
+                wasConnected = true;
+
+                // (재)연결 후, 보고 있던 방이 있으면 focus 재전송
+                if (currentRoomId) sendFocus(currentRoomId);
             };
 
-            chatSocket.onerror = (error) => {
+            projectSocket.onmessage = handleSocketMessage;
+
+            projectSocket.onclose = () => {
+                if (isManualClose) return;
+
+                setTimeout(connectProjectSocket, reconnectDelay);
+                reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+            };
+
+            projectSocket.onerror = (error) => {
                 console.error('WebSocket error:', error);
             };
+        }
+
+        function handleSocketMessage(event) {
+            const evt = JSON.parse(event.data);
+            const myId = localStorage.getItem('user_id');
+
+            if (evt.type === 'message') {
+                const msg = evt.data;
+                // 사이드바의 마지막 메시지 미리보기 갱신 (모든 방)
+                const room = chatRooms.find(r => r.id === msg.chat_room_id);
+                if (room) room.last_message = msg;
+
+                if (msg.chat_room_id === currentRoomId) {
+                    // 지금 보고 있는 방 → 화면에 표시 + 읽음 처리
+                    appendMessage(msg);
+                    scrollToBottom();
+                    markAsRead(currentRoomId, msg.id);
+                } else {
+                    // 안 보는 방 → 내 메시지가 아니면 안읽은 개수 증가
+                    if (room && msg.sender_id !== myId) {
+                        room.unread_count = (room.unread_count || 0) + 1;
+                    }
+                }
+                // 미리보기/정렬 반영 위해 항상 사이드바 갱신
+                renderChatRooms();
+            } else if (evt.type === 'typing') {
+                // 지금 보고 있는 방의, 본인 아닌 사람의 타이핑만 표시
+                if (evt.data.room_id === currentRoomId && evt.data.member_id !== myId) {
+                    showTyping(evt.data.member_id, evt.data.username, evt.data.is_typing);
+                }
+            } else if (evt.type === 'presence') {
+                if (evt.data.member_id !== myId) {
+                    console.log(`${evt.data.username} ${evt.data.online ? '입장' : '퇴장'}`);
+                    // 상대가 나가면 타이핑 표시도 정리
+                    if (!evt.data.online) showTyping(evt.data.member_id, evt.data.username, false);
+                }
+            } else if (evt.type === 'room_deleted') {
+                const roomId = evt.data.room_id;
+                // 목록에서 제거
+                chatRooms = chatRooms.filter(r => r.id !== roomId);
+                // 지금 보고 있던 방이면 뷰 닫기
+                if (currentRoomId === roomId) {
+                    currentRoomId = null;
+                    typingUsers = {};
+                    renderTyping();
+                    document.getElementById('chat-header').innerText = '채팅방을 선택해주세요';
+                    document.getElementById('chat-messages').innerHTML = '<div class="placeholder-box" style="border: none; background: transparent;"><p>상대방이 채팅방을 나갔거나 삭제했습니다.</p></div>';
+                    document.getElementById('chat-form').style.display = 'none';
+                }
+                renderChatRooms();
+            } else if (evt.type === 'room_created') {
+                const room = evt.data;
+                // 이미 있는 방이 아니면 목록에 추가
+                if (!chatRooms.find(r => r.id === room.id)) {
+                    chatRooms.push(room);
+                    renderChatRooms();
+                }
+            }
+        }
+
+        function sendFocus(roomId) {
+            if (projectSocket && projectSocket.readyState === WebSocket.OPEN) {
+                projectSocket.send(JSON.stringify({ type: 'focus', room_id: roomId }));
+            }
+        }
+
+        function sendBlur() {
+            if (projectSocket && projectSocket.readyState === WebSocket.OPEN) {
+                projectSocket.send(JSON.stringify({ type: 'blur' }));
+            }
         }
 
         function appendMessage(msg) {
@@ -843,14 +1010,35 @@
             container.scrollTop = container.scrollHeight;
         }
 
+        let typingTimer = null;
+        let amTyping = false;
+
+        function sendTyping(isTyping) {
+            if (!projectSocket || projectSocket.readyState !== WebSocket.OPEN || !currentRoomId) return;
+            projectSocket.send(JSON.stringify({
+                type: isTyping ? 'typing_start' : 'typing_stop',
+                room_id: currentRoomId,
+            }));
+            amTyping = isTyping;
+        }
+
+        document.getElementById('chat-input').addEventListener('input', () => {
+            if (!amTyping) sendTyping(true);           // 처음 입력 시작 시 1회 typing_start
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => sendTyping(false), 2000);  // 2초간 멈추면 typing_stop
+        });
+
         document.getElementById('chat-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const input = document.getElementById('chat-input');
             const content = input.value.trim();
-            
-            if (content && chatSocket && chatSocket.readyState === WebSocket.OPEN) {
-                chatSocket.send(content);
+
+            if (content && currentRoomId && projectSocket && projectSocket.readyState === WebSocket.OPEN) {
+                projectSocket.send(JSON.stringify({ type: 'message', room_id: currentRoomId, content: content }));
                 input.value = '';
+                // 전송하면 타이핑 종료
+                clearTimeout(typingTimer);
+                if (amTyping) sendTyping(false);
             }
         });
 

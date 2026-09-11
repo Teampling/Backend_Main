@@ -2,7 +2,7 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select, and_, func
+from sqlmodel import select, func, update
 from app.modules.chat.models import ChatRoom, ChatRoomMember, ChatMessage
 from app.shared.enums import ChatRoomType
 
@@ -102,6 +102,26 @@ class ChatRepository:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
+    async def get_message_by_id(self, message_id: UUID) -> ChatMessage | None:
+        stmt = select(ChatMessage).where(ChatMessage.id == message_id)
+        result = await self.session.execute(stmt)
+        return result.scalar()
+
+    async def get_last_messages(self, room_ids: list[UUID]) -> dict[UUID, ChatMessage]:
+        """여러 방의 마지막 메시지를 DISTINCT ON으로 한 번에 조회합니다."""
+        if not room_ids:
+            return {}
+        # DISTINCT ON (chat_room_id) + created_at DESC → 방별 가장 최근 메시지 1건
+        stmt = (
+            select(ChatMessage)
+            .where(ChatMessage.chat_room_id.in_(room_ids), ChatMessage.is_deleted == False)
+            .options(selectinload(ChatMessage.sender))
+            .distinct(ChatMessage.chat_room_id)
+            .order_by(ChatMessage.chat_room_id, ChatMessage.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return {message.chat_room_id: message for message in result.scalars().all()}
+
     async def is_room_member(self, room_id: UUID, member_id: UUID) -> bool:
         stmt = select(ChatRoomMember).where(
             ChatRoomMember.chat_room_id == room_id,
@@ -116,3 +136,34 @@ class ChatRepository:
         room.deleted_at = datetime.now(timezone.utc)
         self.session.add(room)
         await self.session.flush()
+
+    async def mark_as_read(self, room_id: UUID, member_id: UUID, message_id: UUID) -> None:
+        await self.session.execute(
+            update(ChatRoomMember)
+            .where(
+                ChatRoomMember.chat_room_id == room_id,
+                ChatRoomMember.member_id == member_id,
+            )
+            .values(last_read_message_id = message_id)
+        )
+
+    async def get_unread_count(self, room_id: UUID, member_id: UUID) -> int:
+        result = await self.session.execute(
+            select(ChatRoomMember.last_read_message_id)
+            .where(
+                ChatRoomMember.chat_room_id == room_id,
+                ChatRoomMember.member_id == member_id,
+            )
+        )
+        last_read_message_id = result.scalar_one_or_none()
+
+        count_query = select(func.count()).where(
+            ChatMessage.chat_room_id == room_id,
+            ChatMessage.is_deleted == False,
+        )
+        if last_read_message_id is not None:
+            sub_query = select(ChatMessage.created_at).where(ChatMessage.id == last_read_message_id).scalar_subquery()
+            count_query = count_query.where(ChatMessage.created_at > sub_query)
+
+        result = await self.session.execute(count_query)
+        return result.scalar_one()

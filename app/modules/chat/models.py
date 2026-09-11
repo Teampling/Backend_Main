@@ -22,6 +22,12 @@ class ChatRoomMember(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+    last_read_message_id: UUID | None = Field(
+        default=None,
+        foreign_key="chat_messages.id",
+        nullable=True,
+        description="마지막으로 읽은 메시지 고유키",
+    )
 
 class ChatRoom(BaseModel, table=True):
     __tablename__ = "chat_rooms"

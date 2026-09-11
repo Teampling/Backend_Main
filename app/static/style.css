@@ -715,6 +715,36 @@ th {
     border-left: 4px solid #6f42c1;
 }
 
+.chat-typing {
+    min-height: 20px;
+    padding: 0 1rem 0.3rem;
+    font-size: 0.8rem;
+    color: #868e96;
+    font-style: italic;
+}
+
+.chat-room-time {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    color: #adb5bd;
+    align-self: flex-start;
+}
+
+.unread-badge {
+    flex-shrink: 0;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: #fa5252;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .chat-room-info h4 {
     font-size: 0.95rem;
     margin-bottom: 0.2rem;

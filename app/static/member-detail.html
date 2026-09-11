@@ -127,6 +127,59 @@
             }
         }
 
+        async function loadMyProjects() {
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch('/project/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                const projects = result.data.items;
+                
+                const select = document.getElementById('project-select');
+                if (projects.length === 0) {
+                    select.innerHTML = '<option value="" disabled>참여 중인 프로젝트가 없습니다.</option>';
+                    document.getElementById('btn-start-dm').disabled = true;
+                    return;
+                }
+
+                select.innerHTML = projects.map(p => `
+                    <option value="${p.id}">${p.name}</option>
+                `).join('');
+                
+            } catch (e) {
+                console.error('프로젝트 목록 로드 실패', e);
+            }
+        }
+
+        document.getElementById('btn-start-dm').addEventListener('click', async () => {
+            const token = localStorage.getItem('access_token');
+            const projectId = document.getElementById('project-select').value;
+            
+            try {
+                const response = await fetch(`/chat/projects/${projectId}/rooms/direct`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        target_member_id: targetMemberId
+                    })
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    // 성공 시 해당 프로젝트 페이지의 채팅방으로 이동
+                    location.href = `/static/project-detail.html?id=${projectId}&chat_room_id=${result.data.id}`;
+                } else {
+                    alert('채팅방 생성 실패: ' + (result.message || '오류가 발생했습니다.'));
+                }
+            } catch (e) {
+                alert('통신 오류 발생');
+            }
+        });
+
         function logout() {
             localStorage.clear();
             location.href = '/static/index.html';
