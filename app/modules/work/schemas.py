@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import model_validator
 from sqlmodel import SQLModel, Field
 from app.shared.enums import WorkState
+from app.shared.utils.datetime_utils import to_utc
 
 
 class WorkCreateIn(SQLModel):
@@ -17,6 +18,8 @@ class WorkCreateIn(SQLModel):
 
     @model_validator(mode="after")
     def validate_dates(self) -> "WorkCreateIn":
+        self.start_date = to_utc(self.start_date)
+        self.end_date = to_utc(self.end_date)
         if self.start_date > self.end_date:
             raise ValueError("시작일은 종료일보다 빨라야 합니다.")
         return self
@@ -44,6 +47,8 @@ class WorkUpdateIn(SQLModel):
 
     @model_validator(mode="after")
     def validate_dates(self) -> "WorkUpdateIn":
+        self.start_date = to_utc(self.start_date)
+        self.end_date = to_utc(self.end_date)
         if self.start_date and self.end_date:
             if self.start_date > self.end_date:
                 raise ValueError("시작일은 종료일보다 빨라야 합니다.")
