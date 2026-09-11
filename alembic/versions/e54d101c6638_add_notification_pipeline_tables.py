@@ -1,7 +1,7 @@
 """add notification pipeline tables
 
 Revision ID: e54d101c6638
-Revises: d8b2114a1c79
+Revises: a930eb13180a
 Create Date: 2026-09-11 02:34:00.261266
 
 """
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = 'e54d101c6638'
-down_revision: Union[str, Sequence[str], None] = 'd8b2114a1c79'
+down_revision: Union[str, Sequence[str], None] = 'a930eb13180a'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

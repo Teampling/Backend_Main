@@ -47,3 +47,8 @@ class NotificationTargetType(int, Enum):
     NOTICE = 2
     INVITATION = 3
     OTHER = 4
+
+class ChatEventType(str, Enum):
+    MESSAGE = "message"
+    TYPING = "typing"
+    PRESENCE = "presence"
