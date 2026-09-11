@@ -16,6 +16,8 @@ from app.modules.member.models import Member
 from app.modules.favorite.models import Favorite
 from app.modules.notice.models import Notice
 from app.modules.notification.models import Notification
+from app.modules.notification.models import NotificationRecipient
+from app.modules.notification.models import OutboxEvent
 from app.modules.project.models import Project
 from app.modules.project.models import ProjectMember
 from app.modules.project.models import ProjectInvitation

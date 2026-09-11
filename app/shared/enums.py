@@ -27,6 +27,27 @@ class ChatRoomType(str, Enum):
     GROUP = "group"
     DIRECT = "direct"
 
+class NotificationEventType(str, Enum):
+    # 공지
+    NOTICE_CREATED = "notice_created"
+    NOTICE_UPDATED = "notice_updated"
+    # 작업
+    WORK_ASSIGNED = "work_assigned"
+    WORK_STATUS_CHANGED = "work_status_changed"
+    # 프로젝트
+    PROJECT_INVITED = "project_invited"
+    PROJECT_MEMBER_JOINED = "project_member_joined"
+    PROJECT_INVITATION_DECLINED = "project_invitation_declined"
+    PROJECT_MEMBER_REMOVED = "project_member_removed"
+    PROJECT_LEADERSHIP_TRANSFERRED = "project_leadership_transferred"
+
+class NotificationTargetType(int, Enum):
+    PROJECT = 0
+    WORK = 1
+    NOTICE = 2
+    INVITATION = 3
+    OTHER = 4
+
 class ChatEventType(str, Enum):
     MESSAGE = "message"
     TYPING = "typing"

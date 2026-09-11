@@ -13,6 +13,7 @@ class WorkCreateIn(SQLModel):
     start_date: datetime = Field(description="작업 시작 일자")
     end_date: datetime = Field(description="작업 종료 일자")
     state: WorkState = Field(default=WorkState.PLANNED, description="작업 상태(planned, doing, done)")
+    assignee_ids: list[UUID] = Field(default_factory=list, description="담당자 회원 ID 목록")
 
     @model_validator(mode="after")
     def validate_dates(self) -> "WorkCreateIn":
@@ -39,6 +40,7 @@ class WorkUpdateIn(SQLModel):
     start_date: datetime | None = Field(default=None, description="작업 시작 일자")
     end_date: datetime | None = Field(default=None, description="작업 종료 일자")
     state: WorkState | None = Field(default=None, description="작업 상태(planned, doing, done)")
+    assignee_ids: list[UUID] | None = Field(default=None, description="담당자 회원 ID 목록")
 
     @model_validator(mode="after")
     def validate_dates(self) -> "WorkUpdateIn":
@@ -66,6 +68,7 @@ class WorkOut(SQLModel):
     start_date: datetime = Field(description="작업 시작 일자")
     end_date: datetime = Field(description="작업 종료 일자")
     state: WorkState = Field(description="작업 상태(planned, doing, done)")
+    assignee_ids: list[UUID] = Field(default_factory=list, description="담당자 회원 ID 목록")
     created_at: datetime = Field(description="생성 일시")
     updated_at: datetime | None = Field(default=None, description="수정 일시")
 

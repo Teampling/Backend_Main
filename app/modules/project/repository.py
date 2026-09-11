@@ -108,6 +108,21 @@ class ProjectRepository:
         result = await self.session.execute(stmt)
         return result.all()
 
+    async def get_member_ids(self, project_id: UUID, include_leader: bool = False) -> "list[UUID]":
+        """
+        프로젝트 멤버의 ID 목록을 조회합니다.
+        """
+        project = await self.get_by_id(project_id)
+        if not project:
+            return []
+
+        stmt = select(ProjectMember.member_id).where(ProjectMember.project_id == project_id)
+        result = await self.session.execute(stmt)
+        member_ids = [row[0] for row in result.fetchall()]
+        if include_leader:
+            member_ids.append(project.leader_id)
+        return member_ids
+
     async def delete_member(self, project_id: UUID, member_id: UUID) -> None:
         """
         프로젝트에서 멤버를 제거합니다.

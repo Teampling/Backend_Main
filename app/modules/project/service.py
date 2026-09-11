@@ -12,6 +12,7 @@ from app.modules.member.repository import MemberRepository
 from app.modules.project.models import Project, ProjectInvitation, ProjectMember
 from app.modules.project.repository import ProjectRepository
 from app.modules.project.schemas import ProjectCreateIn, ProjectUpdateIn
+from app.modules.notification.events import NotificationEvents
 from app.shared.enums import InvitationStatus
 from app.shared.utils.email import send_email
 
@@ -219,6 +220,13 @@ class ProjectService:
         body = f"{invitee.username}님, {project.name} 프로젝트에 초대되었습니다.\n\n수락하시려면 아래 링크를 클릭하세요:\n{invite_url}"
         
         await send_email(subject, invitee.email, body)
+
+        NotificationEvents.project_invited(
+            self.session,
+            project_id=project_id,
+            project_name=project.name,
+            recipient_ids=[member_id],
+        )
         await self.session.commit()
         await self.session.refresh(saved)
         return saved
@@ -248,6 +256,14 @@ class ProjectService:
             self.session.add(project_member)
 
         invitation.status = InvitationStatus.ACCEPTED
+
+        project = await self.get(invitation.project_id)
+        NotificationEvents.project_member_joined(
+            self.session,
+            project_id=invitation.project_id,
+            project_name=project.name,
+            recipient_ids=[project.leader_id],
+        )
         await self.session.commit()
         await self.session.refresh(invitation)
         return invitation
@@ -264,6 +280,14 @@ class ProjectService:
             raise AppError.forbidden("본인에게 발송된 초대가 아닙니다.")
 
         invitation.status = InvitationStatus.DECLINED
+
+        project = await self.get(invitation.project_id)
+        NotificationEvents.project_invitation_declined(
+            self.session,
+            project_id=invitation.project_id,
+            project_name=project.name,
+            recipient_ids=[project.leader_id],
+        )
         await self.session.commit()
         await self.session.refresh(invitation)
         return invitation
@@ -277,6 +301,13 @@ class ProjectService:
             raise AppError.bad_request("리더는 자신을 퇴출할 수 없습니다.")
         
         await self.repository.delete_member(project_id, member_id)
+
+        NotificationEvents.project_member_removed(
+            self.session,
+            project_id=project_id,
+            project_name=project.name,
+            recipient_ids=[member_id],
+        )
         await self.session.commit()
 
     async def leave_project(self, project_id: UUID, member_id: UUID) -> None:
@@ -322,6 +353,12 @@ class ProjectService:
             updated = await self.repository.save(project)
             await self.repository.delete_member(project_id, new_leader_member_id)
             self.session.add(ProjectMember(project_id=project_id, member_id=actor_member_id))
+            NotificationEvents.project_leadership_transferred(
+                self.session,
+                project_id=project_id,
+                project_name=project.name,
+                recipient_ids=[new_leader_member_id],
+            )
             await self.session.commit()
             await self.session.refresh(updated)
             return updated

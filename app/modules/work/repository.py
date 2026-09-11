@@ -1,17 +1,28 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.modules.work.models import Work
+from app.modules.work.models import Work, WorkAssignee
 from app.shared.enums import WorkState
 
 
 class WorkRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def set_assignees(self, work_id: UUID, member_ids: list[UUID]) -> None:
+        """작업 담당자를 전달된 목록으로 교체한다 (기존 전부 삭제 후 삽입)."""
+        await self.session.execute(delete(WorkAssignee).where(WorkAssignee.work_id == work_id))
+        for member_id in dict.fromkeys(member_ids):
+            self.session.add(WorkAssignee(work_id=work_id, member_id=member_id))
+
+    async def get_assignee_ids(self, work_id: UUID) -> list[UUID]:
+        stmt = select(WorkAssignee.member_id).where(WorkAssignee.work_id == work_id)
+        result = await self.session.execute(stmt)
+        return [row[0] for row in result.fetchall()]
 
     async def get_by_id(self, work_id: UUID, *, include_deleted: bool = False) -> Work | None:
         query = select(Work).where(Work.id == work_id)

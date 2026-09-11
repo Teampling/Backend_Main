@@ -6,12 +6,15 @@ from app.core.exceptions import AppError
 from app.modules.notice.models import Notice
 from app.modules.notice.repository import NoticeRepository
 from app.modules.notice.schemas import NoticeCreateIn, NoticeUpdateIn
+from app.modules.notification.events import NotificationEvents
+from app.modules.project.repository import ProjectRepository
 
 
 class NoticeService:
-    def __init__(self, session: AsyncSession, repository: NoticeRepository):
+    def __init__(self, session: AsyncSession, repository: NoticeRepository, project_repository: ProjectRepository):
         self.session = session
         self.repository = repository
+        self.project_repository = project_repository
 
     async def get(self, notice_id: UUID, *, include_deleted: bool = False) -> Notice:
         notice = await self.repository.get_by_id(notice_id, include_deleted=include_deleted)
@@ -57,6 +60,15 @@ class NoticeService:
         )
         try:
             saved = await self.repository.save(notice)
+            recipient_ids = await self.project_repository.get_member_ids(saved.project_id, include_leader=True)
+            NotificationEvents.notice_created(
+                self.session,
+                notice_id=saved.id,
+                project_id=saved.project_id,
+                title=saved.title,
+                detail=saved.detail,
+                recipient_ids=recipient_ids,
+            )
             await self.session.commit()
             await self.session.refresh(saved)
             return saved
@@ -74,6 +86,15 @@ class NoticeService:
 
         try:
             updated = await self.repository.save(notice)
+            recipient_ids = await self.project_repository.get_member_ids(notice.project_id, include_leader=True)
+            NotificationEvents.notice_updated(
+                self.session,
+                notice_id=notice.id,
+                project_id=notice.project_id,
+                title=notice.title,
+                detail=notice.detail,
+                recipient_ids=recipient_ids,
+            )
             await self.session.commit()
             await self.session.refresh(updated)
             return updated
