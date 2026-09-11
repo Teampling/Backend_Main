@@ -253,6 +253,8 @@
                 return `/static/notice-detail.html?project_id=${n.project_id}&notice_id=${n.target_id}`;
             if (n.event_type.startsWith('project') && n.target_id)
                 return `/static/project-detail.html?id=${n.target_id}`;
+            if (n.event_type.startsWith('work') && n.project_id)
+                return `/static/project-detail.html?id=${n.project_id}`;   // work 상세 페이지가 없어 프로젝트 보드로
             return null;
         }
 

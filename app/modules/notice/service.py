@@ -86,6 +86,15 @@ class NoticeService:
 
         try:
             updated = await self.repository.save(notice)
+            recipient_ids = await self.project_repository.get_member_ids(notice.project_id, include_leader=True)
+            NotificationEvents.notice_updated(
+                self.session,
+                notice_id=notice.id,
+                project_id=notice.project_id,
+                title=notice.title,
+                detail=notice.detail,
+                recipient_ids=recipient_ids,
+            )
             await self.session.commit()
             await self.session.refresh(updated)
             return updated

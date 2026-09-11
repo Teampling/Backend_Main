@@ -232,6 +232,16 @@
                         <option value="done">완료</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label>담당자</label>
+                    <div id="assignee-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
+                    <div style="position:relative;">
+                        <input type="text" id="assignee-search" placeholder="닉네임 검색..." autocomplete="off"
+                               oninput="onAssigneeSearch()" onfocus="onAssigneeSearch()"
+                               onblur="setTimeout(() => { const d=document.getElementById('assignee-dropdown'); if(d) d.style.display='none'; }, 150)">
+                        <div id="assignee-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid #ddd;border-radius:6px;max-height:160px;overflow-y:auto;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.1);"></div>
+                    </div>
+                </div>
                 <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
                     <button type="submit" class="btn-primary" style="margin-top: 0;">저장하기</button>
                     <button type="button" id="btn-delete-task" class="btn-danger" style="display: none; width: auto;" onclick="deleteTask()">삭제</button>
@@ -243,6 +253,8 @@
     <script>
         let currentProjectId = new URLSearchParams(window.location.search).get('id');
         let selectedUsers = [];
+        let projectMembers = [];
+        let selectedAssignees = [];   // [{id, username}]
         let isProjectLeader = false;
         let projectNotices = [];
         let chatSocket = null;
@@ -405,7 +417,59 @@
                 document.getElementById('task-end').value = today;
             }
 
+            const editing = taskId ? projectTasks.find(t => t.id === taskId) : null;
+            initAssignees(editing ? (editing.assignee_ids || []) : []);
+
             modal.classList.add('active');
+        }
+
+        function initAssignees(ids) {
+            const byId = {};
+            projectMembers.forEach(m => { byId[m.member.id] = m.member.username; });
+            selectedAssignees = (ids || []).filter(id => byId[id]).map(id => ({ id, username: byId[id] }));
+            const search = document.getElementById('assignee-search');
+            if (search) search.value = '';
+            const dd = document.getElementById('assignee-dropdown');
+            if (dd) dd.style.display = 'none';
+            renderAssigneeChips();
+        }
+
+        function renderAssigneeChips() {
+            const box = document.getElementById('assignee-chips');
+            if (!box) return;
+            box.innerHTML = selectedAssignees.map(a => `
+                <span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:0.85rem;">
+                    ${a.username}
+                    <span style="cursor:pointer;color:#3b82f6;font-weight:bold;" onclick="removeAssignee('${a.id}')">×</span>
+                </span>
+            `).join('');
+        }
+
+        function onAssigneeSearch() {
+            const q = document.getElementById('assignee-search').value.trim().toLowerCase();
+            const dd = document.getElementById('assignee-dropdown');
+            const chosen = new Set(selectedAssignees.map(a => a.id));
+            const matches = projectMembers.map(m => m.member).filter(mem => !chosen.has(mem.id) && mem.username.toLowerCase().includes(q));
+            if (!matches.length) { dd.style.display = 'none'; return; }
+            dd.innerHTML = matches.map(mem => `
+                <div style="padding:8px 10px;cursor:pointer;" onmousedown="addAssignee('${mem.id}')" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">${mem.username}</div>
+            `).join('');
+            dd.style.display = 'block';
+        }
+
+        function addAssignee(id) {
+            if (!selectedAssignees.some(a => a.id === id)) {
+                const mem = projectMembers.map(m => m.member).find(m => m.id === id);
+                if (mem) selectedAssignees.push({ id: mem.id, username: mem.username });
+            }
+            document.getElementById('assignee-search').value = '';
+            document.getElementById('assignee-dropdown').style.display = 'none';
+            renderAssigneeChips();
+        }
+
+        function removeAssignee(id) {
+            selectedAssignees = selectedAssignees.filter(a => a.id !== id);
+            renderAssigneeChips();
         }
 
         function closeTaskModal() {
@@ -505,13 +569,15 @@
             const token = localStorage.getItem('access_token');
             const taskId = document.getElementById('task-id').value;
             
+            const assigneeIds = selectedAssignees.map(a => a.id);
             const data = {
                 project_id: currentProjectId,
                 title: document.getElementById('task-title').value,
                 detail: document.getElementById('task-detail').value,
                 start_date: document.getElementById('task-start').value + "T00:00:00",
                 end_date: document.getElementById('task-end').value + "T23:59:59",
-                state: document.getElementById('task-state').value
+                state: document.getElementById('task-state').value,
+                assignee_ids: assigneeIds
             };
 
             try {
@@ -609,6 +675,7 @@
                 });
                 const mResult = await mResponse.json();
                 const members = mResult.data;
+                projectMembers = members;
 
                 const memberGrid = document.getElementById('proj-members-list');
                 memberGrid.innerHTML = members.map(m => `

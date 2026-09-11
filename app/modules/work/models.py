@@ -23,7 +23,14 @@ class Work(BaseModel, table=True):
 
     project: "Project" = Relationship(back_populates="works")
     author: "Member" = Relationship(back_populates="created_works")
-    assignees: list["Member"] = Relationship(link_model=WorkAssignee)
+    assignees: list["Member"] = Relationship(
+        link_model=WorkAssignee,
+        sa_relationship_kwargs={"lazy": "selectin"},
+    )
+
+    @property
+    def assignee_ids(self) -> list[UUID]:
+        return [assignee.id for assignee in self.assignees]
 
     id: UUID = Field(
         default_factory=uuid4,
